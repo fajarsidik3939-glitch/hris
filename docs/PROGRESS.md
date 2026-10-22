@@ -11,7 +11,7 @@
 | 6 | Development Roadmap & Acceptance Criteria | APPROVED (2026-10-22) |
 | 7 | Implementation Foundation & Authentication | APPROVED (2026-10-23, login dari HP berhasil) |
 | 8 | Employee Management & Organization | APPROVED (2026-10-23) |
-| 9 | Selfie GPS Attendance | IN PROGRESS (kode selesai; menunggu kunci Storage + uji HP) |
+| 9 | Selfie GPS Attendance | READY FOR REVIEW |
 | 10 | Attendance Management, Shift & Scheduling | NOT STARTED |
 | 11 | Leave, Permission & Approval Workflow | NOT STARTED |
 | 12 | Impor Fingerprint (slot semula Overtime; lembur pindah ke Phase 15) | NOT STARTED |
@@ -127,7 +127,8 @@ Hasil cek (localhost, akun uji-karyawan, foto JPEG uji dari canvas karena kamera
 - Trigger: ubah jam / ganti foto / hapus event ditolak; kosongkan foto diizinkan.
 - Review (ponytail-review) menemukan 8 hal; semua diperbaiki: shift berurutan dianggap pulang, kamera bisa hitam, GPS tunggu tanpa batas, logika masuk/pulang tanpa test, trigger belum diuji, Origin "null", kirim ulang tumpang tindih, join tak terpakai.
 - Data uji absensi uji-karyawan 23 Okt tersimpan permanen di DB dev (event tidak bisa dihapus — sesuai desain).
-- BELUM: uji kamera di HP Android & iPhone sungguhan (acceptance 1–3).
+- Uji HP oleh user (23 Okt 05:54): Android — login, clock-in selfie GPS sukses; akurasi ±11,7 m; foto 34 KB; label Luar radius 30,5 km (koordinat pabrik masih contoh). User menyatakan sukses dan minta lanjut.
+- BELUM diuji: iPhone/Safari, clock-out dari HP (jeda 30 menit), jalur izin ditolak di HP.
 
 ## Langkah berikutnya
-User mencoba absen dari HP Android + iPhone di https://hris-2ohe.vercel.app → laporan approval Phase 9.
+Approval Phase 9. Setelah APPROVE: Phase 10 / M4 (jadwal rotasi, rekap kehadiran, halaman Kehadiran HR, approval engine + koreksi, notifikasi).

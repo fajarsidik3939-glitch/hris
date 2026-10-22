@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HRIS Mockup</title>
+<style>
+  :root {
+    --primary: #1D4ED8; --primary-soft: #DBEAFE;
+    --success: #15803D; --success-soft: #DCFCE7;
+    --warning: #B45309; --warning-soft: #FEF3C7;
+    --danger: #B91C1C; --danger-soft: #FEE2E2;
+    --info: #0369A1; --info-soft: #E0F2FE;
+    --orange: #C2410C; --orange-soft: #FFEDD5;
+    --text: #0F172A; --muted: #64748B; --line: #E2E8F0; --bg: #F1F5F9; --card: #FFFFFF;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; background: #E5E7EB; color: var(--text); }
+  header.page { padding: 24px 16px 8px; max-width: 1400px; margin: 0 auto; }
+  header.page h1 { margin: 0 0 4px; font-size: 24px; }
+  header.page p { margin: 0; color: var(--muted); }
+  h2.section { max-width: 1400px; margin: 32px auto 12px; padding: 0 16px; font-size: 18px; }
+  .row { display: flex; flex-wrap: wrap; gap: 24px; max-width: 1400px; margin: 0 auto; padding: 0 16px; }
+  .shot { display: flex; flex-direction: column; gap: 8px; min-width: 0; max-width: 100%; }
+  .shot:has(.desk) { overflow-x: auto; }
+  .shot > .cap { font-size: 13px; color: var(--muted); font-weight: 600; }
+
+  /* phone */
+  .phone { width: 300px; height: 620px; background: var(--bg); border: 8px solid #0F172A; border-radius: 32px; overflow: hidden; display: flex; flex-direction: column; position: relative; font-size: 14px; }
+  .status { height: 22px; background: #fff; font-size: 11px; display: flex; justify-content: space-between; padding: 4px 16px 0; color: var(--muted); }
+  .appbar { background: #fff; padding: 10px 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--line); font-weight: 600; }
+  .appbar .sp { flex: 1; }
+  .content { flex: 1; overflow: hidden; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .tabs { display: flex; background: #fff; border-top: 1px solid var(--line); }
+  .tabs div { flex: 1; text-align: center; font-size: 11px; padding: 8px 0 10px; color: var(--muted); }
+  .tabs div .i { display: block; font-size: 18px; }
+  .tabs div.on { color: var(--primary); font-weight: 700; }
+
+  .card { background: var(--card); border-radius: 8px; padding: 12px; border: 1px solid var(--line); }
+  .muted { color: var(--muted); font-size: 12px; }
+  .big { font-size: 22px; font-weight: 700; }
+  .btn { display: block; text-align: center; border-radius: 8px; padding: 12px; font-weight: 700; border: 0; font-size: 14px; }
+  .btn.primary { background: var(--primary); color: #fff; }
+  .btn.ghost { background: #fff; color: var(--text); border: 1px solid var(--line); }
+  .btn.danger { background: #fff; color: var(--danger); border: 1px solid var(--danger); }
+  .btn.sm { padding: 6px 12px; font-size: 12px; display: inline-block; }
+  .clock { background: var(--primary); color: #fff; border-radius: 16px; height: 96px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 22px; font-weight: 800; letter-spacing: .5px; box-shadow: 0 6px 16px rgba(29,78,216,.35); }
+  .clock small { font-size: 12px; font-weight: 500; opacity: .9; }
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .b-ok { background: var(--success-soft); color: var(--success); }
+  .b-warn { background: var(--warning-soft); color: var(--warning); }
+  .b-orange { background: var(--orange-soft); color: var(--orange); }
+  .b-info { background: var(--info-soft); color: var(--info); }
+  .b-danger { background: var(--danger-soft); color: var(--danger); }
+  .b-grey { background: var(--bg); color: var(--muted); }
+  .flex { display: flex; align-items: center; gap: 8px; }
+  .between { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .input { background: #fff; border: 1px solid #CBD5E1; border-radius: 8px; padding: 10px 12px; font-size: 14px; }
+  .dots { display: flex; gap: 6px; }
+  .dot { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; font-size: 12px; font-weight: 700; }
+
+  /* camera */
+  .cam { flex: 1; background: radial-gradient(circle at 50% 40%, #475569, #0F172A); border-radius: 12px; position: relative; display: grid; place-items: center; }
+  .face { width: 150px; height: 190px; border: 3px dashed rgba(255,255,255,.8); border-radius: 50% / 45%; }
+  .person { position: absolute; width: 120px; height: 160px; bottom: 0; left: 50%; transform: translateX(-50%); }
+  .shutter { width: 64px; height: 64px; border-radius: 50%; border: 5px solid var(--primary); background: #fff; margin: 0 auto; }
+  .perm { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  /* desktop */
+  .desk { width: 1060px; flex-shrink: 0; height: 600px; border: 1px solid #CBD5E1; border-radius: 10px; overflow: hidden; display: flex; background: var(--bg); font-size: 13px; box-shadow: 0 10px 30px rgba(15,23,42,.12); }
+  .side { width: 190px; background: #0F172A; color: #CBD5E1; padding: 14px 10px; display: flex; flex-direction: column; gap: 2px; }
+  .side .logo { color: #fff; font-weight: 800; font-size: 16px; padding: 4px 8px 14px; }
+  .side div.m { padding: 8px 10px; border-radius: 6px; }
+  .side div.m.on { background: var(--primary); color: #fff; font-weight: 600; }
+  .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .top { background: #fff; border-bottom: 1px solid var(--line); padding: 10px 18px; display: flex; align-items: center; gap: 12px; }
+  .top h3 { margin: 0; font-size: 16px; flex: 1; }
+  .pad { padding: 16px 18px; display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .grid2 { display: grid; grid-template-columns: 1.6fr 1fr; gap: 12px; }
+  .bar { height: 10px; background: var(--bg); border-radius: 99px; overflow: hidden; flex: 1; }
+  .bar span { display: block; height: 100%; background: var(--primary); }
+  table { width: 100%; border-collapse: collapse; background: #fff; }
+  th { text-align: left; font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .3px; padding: 8px 10px; border-bottom: 1px solid var(--line); background: #F8FAFC; }
+  td { padding: 9px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  .thumb { width: 28px; height: 28px; border-radius: 6px; background: linear-gradient(135deg, #94A3B8, #475569); display: inline-block; vertical-align: middle; }
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; }
+  .filters .input { padding: 6px 10px; font-size: 12px; }
+  .steps { display: flex; gap: 8px; }
+  .steps div { flex: 1; padding: 8px; border-radius: 6px; background: #fff; border: 1px solid var(--line); text-align: center; font-weight: 600; color: var(--muted); }
+  .steps div.on { border-color: var(--primary); color: var(--primary); background: var(--primary-soft); }
+  .drop { border: 2px dashed #CBD5E1; border-radius: 10px; background: #fff; padding: 18px; text-align: center; color: var(--muted); }
+  .legend { max-width: 1400px; margin: 0 auto; padding: 0 16px; display: flex; gap: 8px; flex-wrap: wrap; }
+  footer { max-width: 1400px; margin: 32px auto; padding: 0 16px; color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+
+<header class="page">
+  <h1>HRIS — Mockup UI/UX (Phase 3)</h1>
+  <p>Gambaran tampilan, bukan aplikasi jadi. Data di gambar hanya contoh. Tema terang, Bahasa Indonesia, WIB.</p>
+</header>
+
+<h2 class="section">Label lokasi absensi</h2>
+<div class="legend">
+  <span class="badge b-ok">● Dalam radius</span>
+  <span class="badge b-warn">▲ Luar radius</span>
+  <span class="badge b-orange">◐ Akurasi rendah</span>
+  <span class="badge b-info">◆ Lapangan</span>
+  <span class="muted">Semua absensi tetap diterima, label hanya untuk pemeriksaan HR/atasan.</span>
+</div>
+
+<!-- ================= HP ================= -->
+<h2 class="section">Karyawan — HP</h2>
+<div class="row">
+
+  <div class="shot"><div class="cap">1. Login</div>
+    <div class="phone">
+      <div class="status"><span>07:52</span><span>4G ▮▮▮ 🔋</span></div>
+      <div class="content" style="justify-content:center; gap:14px; padding:24px;">
+        <div style="text-align:center;">
+          <div style="width:56px;height:56px;border-radius:14px;background:var(--primary);color:#fff;display:grid;place-items:center;margin:0 auto 10px;font-weight:800;">PT</div>
+          <div class="big">Masuk ke HRIS</div>
+          <div class="muted">PT Contoh Manufaktur</div>
+        </div>
+        <div class="field"><label>ID Karyawan / Email</label><div class="input">EMP-0042</div></div>
+        <div class="field"><label>Password</label><div class="input between"><span>••••••••</span><span class="muted">Lihat</span></div></div>
+        <div class="btn primary">MASUK</div>
+        <div class="muted" style="text-align:center;">Lupa password? Hubungi HR.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="shot"><div class="cap">2. Beranda karyawan</div>
+    <div class="phone">
+      <div class="status"><span>07:56</span><span>4G ▮▮▮ 🔋</span></div>
+      <div class="appbar"><span>Halo, Budi</span><span class="sp"></span><span class="badge b-danger">🔔 2</span></div>
+      <div class="content">
+        <div class="muted">Rabu, 22 Okt 2026</div>
+        <div class="card between"><div><b>Shift Pagi</b><div class="muted">08:00 – 17:00 · Kantor Cikarang</div></div></div>
+        <div class="clock">CLOCK IN<small>Belum absen hari ini</small></div>
+        <div class="card between"><div><div class="muted">Masuk</div><b>--:--</b></div><div><div class="muted">Pulang</div><b>--:--</b></div><div><div class="muted">Durasi</div><b>–</b></div></div>
+        <div class="card between"><span>Sisa cuti tahunan</span><b>9 hari</b></div>
+        <div class="card between"><span>Pengajuan menunggu</span><span class="badge b-warn">1</span></div>
+        <div class="card"><div class="muted" style="margin-bottom:6px;">5 hari kerja terakhir</div>
+          <div class="dots">
+            <div class="dot b-ok">✓</div><div class="dot b-ok">✓</div><div class="dot b-warn">!</div><div class="dot b-ok">✓</div><div class="dot b-ok">✓</div>
+          </div></div>
+      </div>
+      <div class="tabs"><div class="on"><span class="i">⌂</span>Beranda</div><div><span class="i">◉</span>Absen</div><div><span class="i">☰</span>Pengajuan</div><div><span class="i">⋯</span>Lainnya</div></div>
+    </div>
+  </div>
+
+  <div class="shot"><div class="cap">3a. Clock In — kamera</div>
+    <div class="phone">
+      <div class="status"><span>07:57</span><span>4G ▮▮▮ 🔋</span></div>
+      <div class="appbar"><span>← Clock In</span></div>
+      <div class="content">
+        <div class="cam">
+          <div class="face"></div>
+        </div>
+        <div class="muted" style="text-align:center;">Posisikan wajah di dalam bingkai</div>
+        <div class="perm"><span class="badge b-ok">📷 Kamera aktif</span><span class="badge b-grey">📍 Mencari lokasi…</span></div>
+        <div class="shutter"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="shot"><div class="cap">3b. Clock In — preview</div>
+    <div class="phone">
+      <div class="status"><span>07:58</span><span>4G ▮▮▮ 🔋</span></div>
+      <div class="appbar"><span>← Clock In</span></div>
+      <div class="content">
+        <div class="cam" style="background:linear-gradient(160deg,#94A3B8,#334155);">
+          <svg class="person" viewBox="0 0 120 160"><circle cx="60" cy="52" r="32" fill="#E2E8F0"/><path d="M8 160c4-40 26-58 52-58s48 18 52 58z" fill="#E2E8F0"/></svg>
+        </div>
+        <div class="card">
+          <div class="between"><b>📍 Lokasi didapat</b><span class="badge b-ok">● Dalam radius</span></div>
+          <div class="muted">Kantor Cikarang · 35 m · akurasi ±12 m</div>
+        </div>
+        <div class="between" style="gap:10px;"><div class="btn ghost" style="flex:1;">Ulangi</div><div class="btn primary" style="flex:2;">KIRIM ABSEN</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="shot"><div class="cap">3c. Clock In — berhasil</div>
+    <div class="phone">
+      <div class="status"><span>07:58</span><span>4G ▮▮▮ 🔋</span></div>
+      <div class="content" style="justify-content:center; text-align:center; gap:12px; padding:24px;">
+        <div style="width:84px;height:84px;border-radius:50%;background:var(--success-soft);color:var(--success);display:grid;place-items:center;margin:0 auto;font-size:44px;font-weight:800;">✓</div>
+        <div class="big">Clock In berhasil</div>
+        <div style="font-size:34px;font-weight:800;">07:58 <span style="font-size:16px;">WIB</span></div>
+        <div class="muted">Rabu, 22 Okt 2026 · Shift Pagi</div>
+        <div class="card" style="text-align:left;">
+          <div class="between"><span>Lokasi</span><b>Kantor Cikarang</b></div>
+          <div class="between" style="margin-top:6px;"><span>Jarak</span><b>35 m</b></div>
+          <div class="between" style="margin-top:6px;"><span>Status</span><span class="badge b-ok">● Dalam radius</span></div>
+          <div class="between" style="margin-top:6px;"><span>Ketepatan</span><span class="badge b-ok">Tepat waktu</span></div>
+        </div>
+        <div class="btn primary">KEMBALI KE BERANDA</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="shot"><div class="cap">3d. Jika izin kamera ditolak</div>
+    <div class="phone">
+      <div class="status"><span>07:57</span><span>4G ▮▮▮ 🔋</span></div>
+      <div class="appbar"><span>← Clock In</span></div>
+      <div class="content" style="justify-content:center; gap:14px; padding:20px;">
+        <div style="width:72px;height:72px;border-radius:50%;background:var(--danger-soft);color:var(--danger);display:grid;place-items:center;margin:0 auto;font-size:34px;">📷</div>
+        <div class="big" style="text-align:center;font-size:19px;">Kamera tidak diizinkan</div>
+        <div style="text-align:center;" class="muted">Absen membutuhkan foto selfie. Izinkan kamera lalu coba lagi.</div>
+        <div class="card">
+          <b>Cara mengizinkan (Chrome Android)</b>
+          <ol style="margin:8px 0 0; padding-left:18px; line-height:1.6;">
+            <li>Ketuk ikon 🔒 di sebelah alamat web</li>
+            <li>Pilih <b>Izin</b> → <b>Kamera</b></li>
+            <li>Pilih <b>Izinkan</b></li>
+          </ol>
+          <div class="muted" style="margin-top:6px;">Pakai iPhone? <u>Lihat panduan Safari</u></div>
+        </div>
+        <div class="btn primary">COBA LAGI</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="shot"><div class="cap">4. Riwayat absensi</div>
+    <div class="phone">
+      <div class="status"><span>12:10</span><span>4G ▮▮▮ 🔋</span></div>
+      <div class="appbar"><span>Riwayat</span><span class="sp"></span><span class="input" style="padding:4px 10px;font-size:12px;">Okt 2026 ▾</span></div>
+      <div class="content">
+        <div class="card">
+          <div class="between"><b>Rab 22 Okt</b><span>07:58 – 17:05</span></div>
+          <div class="between" style="margin-top:6px;"><span class="badge b-ok">● Dalam radius</span><span class="muted">9j 07m</span></div>
+        </div>
+        <div class="card">
+          <div class="between"><b>Sel 21 Okt</b><span>08:21 – 17:00</span></div>
+          <div class="flex" style="margin-top:6px;"><span class="badge b-warn">Terlambat 6m</span><span class="badge b-warn">▲ Luar radius</span></div>
+        </div>
+        <div class="card" style="border-color:var(--danger);">
+          <div class="between"><b>Sen 20 Okt</b><span>07:55 – <span style="color:var(--danger);">--:--</span></span></div>
+          <div class="between" style="margin-top:6px;"><span class="badge b-danger">✕ Belum clock-out</span><span class="btn primary sm">Ajukan Koreksi</span></div>
+        </div>
+        <div class="card">
+          <div class="between"><b>Jum 17 Okt</b><span>06:58 – 15:03</span></div>
+          <div class="flex" style="margin-top:6px;"><span class="badge b-grey">Fingerprint</span></div>
+        </div>
+        <div class="card">
+          <div class="between"><b>Kam 16 Okt</b><span class="badge b-info">Cuti Tahunan</span></div>
+        </div>
+      </div>
+      <div class="tabs"><div><span class="i">⌂</span>Beranda</div><div class="on"><span class="i">◉</span>Absen</div><div><span class="i">☰</span>Pengajuan</div><div><span class="i">⋯</span>Lainnya</div></div>
+    </div>
+  </div>
+
+  <div class="shot"><div class="cap">5. Ajukan cuti</div>
+    <div class="phone">
+      <div class="status"><span>12:12</span><span>4G ▮▮▮ 🔋</span></div>
+      <div class="appbar"><span>← Ajukan Cuti</span></div>
+      <div class="content">
+        <div class="field"><label>Jenis cuti</label><div class="input between"><span>Cuti Tahunan</span><span>▾</span></div></div>
+        <div class="card" style="background:var(--primary-soft);border-color:transparent;">Sisa saldo: <b>9 hari</b></div>
+        <div class="between" style="gap:8px;">
+          <div class="field" style="flex:1;"><label>Mulai</label><div class="input">27 Okt 2026</div></div>
+          <div class="field" style="flex:1;"><label>Sampai</label><div class="input">29 Okt 2026</div></div>
+        </div>
+        <div class="muted">= <b style="color:var(--text);">3 hari kerja</b> · saldo setelah: 6 hari</div>
+        <div class="field"><label>Alasan</label><div class="input" style="height:64px;color:var(--muted);">Acara keluarga di kampung</div></div>
+        <div class="field"><label>Lampiran (opsional)</label><div class="input" style="color:var(--muted);">+ Tambah file</div></div>
+        <div class="muted">Disetujui oleh: Atasan langsung → HR</div>
+        <div class="btn primary">KIRIM PENGAJUAN</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="shot"><div class="cap">6. Approval (atasan)</div>
+    <div class="phone">
+      <div class="status"><span>09:30</span><span>4G ▮▮▮ 🔋</span></div>
+      <div class="appbar"><span>Approval</span></div>
+      <div class="content">
+        <div class="flex"><span class="badge b-info" style="padding:6px 12px;">Menunggu (3)</span><span class="badge b-grey" style="padding:6px 12px;">Riwayat</span></div>
+        <div class="card">
+          <div class="between"><b>Siti Aminah</b><span class="badge b-grey">Tahap: Atasan</span></div>
+          <div style="margin-top:4px;">Cuti Tahunan · 27–29 Okt (3 hari)</div>
+          <div class="muted">Saldo setelah disetujui: 6 hari</div>
+          <div class="between" style="margin-top:10px;"><span class="btn danger sm">Tolak</span><span class="btn primary sm">Setujui</span></div>
+        </div>
+        <div class="card">
+          <div class="between"><b>Andi Pratama</b><span class="badge b-grey">Tahap: Atasan</span></div>
+          <div style="margin-top:4px;">Koreksi 20 Okt · clock-out 17:00</div>
+          <div class="muted">Alasan: lupa clock-out</div>
+          <div class="between" style="margin-top:10px;"><span class="btn danger sm">Tolak</span><span class="btn primary sm">Setujui</span></div>
+        </div>
+        <div class="card">
+          <div class="between"><b>Rina Wati</b><span class="badge b-grey">Tahap: Atasan</span></div>
+          <div style="margin-top:4px;">Izin Pribadi · 24 Okt (½ hari)</div>
+          <div class="between" style="margin-top:10px;"><span class="btn danger sm">Tolak</span><span class="btn primary sm">Setujui</span></div>
+        </div>
+      </div>
+      <div class="tabs"><div><span class="i">⌂</span>Beranda</div><div><span class="i">◉</span>Absen</div><div><span class="i">☰</span>Pengajuan</div><div class="on"><span class="i">✓</span>Approval</div></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ================= DESKTOP ================= -->
+<h2 class="section">HR — Desktop</h2>
+<div class="row">
+
+  <div class="shot"><div class="cap">7. Dashboard HR</div>
+    <div class="desk">
+      <div class="side">
+        <div class="logo">HRIS</div>
+        <div class="m on">Beranda</div><div class="m">Kehadiran</div><div class="m">Approval</div><div class="m">Karyawan</div><div class="m">Jadwal &amp; Shift</div><div class="m">Impor Fingerprint</div><div class="m">Laporan &amp; Ekspor</div><div class="m">Pengaturan</div>
+      </div>
+      <div class="main">
+        <div class="top"><h3>Beranda</h3><span class="input" style="padding:6px 10px;">Cabang: Semua ▾</span><span class="badge b-danger">🔔 5</span><span class="flex"><span class="thumb" style="border-radius:50%;"></span>HR Admin ▾</span></div>
+        <div class="pad">
+          <div class="muted">Rabu, 22 Okt 2026 · 10:15 WIB</div>
+          <div class="stats">
+            <div class="card"><div class="muted">Karyawan aktif</div><div class="big">100</div></div>
+            <div class="card"><div class="muted">Hadir hari ini</div><div class="big" style="color:var(--success);">82</div></div>
+            <div class="card"><div class="muted">Terlambat</div><div class="big" style="color:var(--warning);">6</div></div>
+            <div class="card"><div class="muted">Belum absen (sesuai jadwal)</div><div class="big" style="color:var(--danger);">9</div></div>
+          </div>
+          <div class="grid2">
+            <div class="card">
+              <b>Kehadiran per cabang</b>
+              <div class="flex" style="margin-top:12px;"><span style="width:80px;">Cikarang</span><div class="bar"><span style="width:89%;"></span></div><span style="width:50px;text-align:right;">40/45</span></div>
+              <div class="flex" style="margin-top:10px;"><span style="width:80px;">Karawang</span><div class="bar"><span style="width:87%;"></span></div><span style="width:50px;text-align:right;">28/32</span></div>
+              <div class="flex" style="margin-top:10px;"><span style="width:80px;">Bekasi</span><div class="bar"><span style="width:61%;"></span></div><span style="width:50px;text-align:right;">14/23</span></div>
+            </div>
+            <div class="card">
+              <b>Approval menunggu</b>
+              <div class="between" style="margin-top:12px;"><span>Cuti</span><span class="badge b-warn">3</span></div>
+              <div class="between" style="margin-top:8px;"><span>Izin</span><span class="badge b-warn">1</span></div>
+              <div class="between" style="margin-top:8px;"><span>Koreksi absensi</span><span class="badge b-warn">2</span></div>
+              <div class="btn ghost sm" style="margin-top:12px;">Buka Approval →</div>
+            </div>
+          </div>
+          <div class="card between" style="background:var(--warning-soft);border-color:transparent;">
+            <span>▲ <b>4 absensi Luar radius</b> dan <b>2 Akurasi rendah</b> hari ini perlu dicek.</span><span class="btn ghost sm">Lihat →</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="shot"><div class="cap">8. Kehadiran (HR / atasan)</div>
+    <div class="desk">
+      <div class="side">
+        <div class="logo">HRIS</div>
+        <div class="m">Beranda</div><div class="m on">Kehadiran</div><div class="m">Approval</div><div class="m">Karyawan</div><div class="m">Jadwal &amp; Shift</div><div class="m">Impor Fingerprint</div><div class="m">Laporan &amp; Ekspor</div><div class="m">Pengaturan</div>
+      </div>
+      <div class="main">
+        <div class="top"><h3>Kehadiran</h3><span class="btn ghost sm">⇩ Ekspor</span></div>
+        <div class="pad">
+          <div class="filters">
+            <span class="input">22 Okt 2026 ▾</span><span class="input">Cabang ▾</span><span class="input">Departemen ▾</span><span class="input">Status ▾</span><span class="input">Label lokasi ▾</span><span class="input" style="flex:1;min-width:160px;color:var(--muted);">Cari nama / NIK…</span>
+          </div>
+          <table>
+            <tr><th>Nama</th><th>Cabang</th><th>Masuk</th><th>Pulang</th><th>Sumber</th><th>Lokasi</th><th>Foto</th><th>Status</th></tr>
+            <tr><td><b>Budi Santoso</b><div class="muted">EMP-0042</div></td><td>Cikarang</td><td>07:58</td><td>17:05</td><td>Selfie</td><td><span class="badge b-ok">● 35 m</span></td><td><span class="thumb"></span></td><td><span class="badge b-ok">Hadir</span></td></tr>
+            <tr><td><b>Siti Aminah</b><div class="muted">EMP-0057</div></td><td>Karawang</td><td>08:21</td><td>17:00</td><td>Selfie</td><td><span class="badge b-warn">▲ 1,2 km</span></td><td><span class="thumb"></span></td><td><span class="badge b-warn">Terlambat 6m</span></td></tr>
+            <tr><td><b>Andi Pratama</b><div class="muted">EMP-0013</div></td><td>Cikarang</td><td>06:59</td><td>15:02</td><td>Fingerprint</td><td><span class="muted">–</span></td><td><span class="muted">–</span></td><td><span class="badge b-ok">Hadir</span></td></tr>
+            <tr><td><b>Dewi Lestari</b><div class="muted">EMP-0088</div></td><td>Bekasi</td><td>08:02</td><td>--:--</td><td>Selfie</td><td><span class="badge b-info">◆ Lapangan</span></td><td><span class="thumb"></span></td><td><span class="badge b-ok">Hadir</span></td></tr>
+            <tr><td><b>Joko Widodo</b><div class="muted">EMP-0071</div></td><td>Bekasi</td><td>07:49</td><td>--:--</td><td>Selfie</td><td><span class="badge b-orange">◐ ±240 m</span></td><td><span class="thumb"></span></td><td><span class="badge b-ok">Hadir</span></td></tr>
+            <tr><td><b>Rina Wati</b><div class="muted">EMP-0034</div></td><td>Karawang</td><td>--:--</td><td>--:--</td><td>–</td><td><span class="muted">–</span></td><td><span class="muted">–</span></td><td><span class="badge b-info">Izin</span></td></tr>
+          </table>
+          <div class="between muted"><span>Menampilkan 1–6 dari 100</span><span>‹ 1 2 3 … 17 ›</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="shot"><div class="cap">9. Impor fingerprint</div>
+    <div class="desk">
+      <div class="side">
+        <div class="logo">HRIS</div>
+        <div class="m">Beranda</div><div class="m">Kehadiran</div><div class="m">Approval</div><div class="m">Karyawan</div><div class="m">Jadwal &amp; Shift</div><div class="m on">Impor Fingerprint</div><div class="m">Laporan &amp; Ekspor</div><div class="m">Pengaturan</div>
+      </div>
+      <div class="main">
+        <div class="top"><h3>Impor Fingerprint</h3></div>
+        <div class="pad">
+          <div class="steps"><div>1. Unggah</div><div class="on">2. Preview</div><div>3. Selesai</div></div>
+          <div class="drop">📄 <b style="color:var(--text);">absensi_okt_cikarang.xlsx</b> · 1.240 baris · <u>ganti file</u></div>
+          <div class="stats" style="grid-template-columns:repeat(3,1fr);">
+            <div class="card"><div class="muted">Valid</div><div class="big" style="color:var(--success);">1.198</div></div>
+            <div class="card"><div class="muted">Duplikat (dilewati)</div><div class="big" style="color:var(--warning);">30</div></div>
+            <div class="card"><div class="muted">ID tidak dikenal</div><div class="big" style="color:var(--danger);">12</div></div>
+          </div>
+          <table>
+            <tr><th>ID mesin</th><th>Waktu</th><th>Karyawan</th><th>Hasil</th></tr>
+            <tr><td>1042</td><td>01 Okt 06:58</td><td>Andi Pratama</td><td><span class="badge b-ok">Valid</span></td></tr>
+            <tr><td>1042</td><td>01 Okt 06:58</td><td>Andi Pratama</td><td><span class="badge b-warn">Duplikat</span></td></tr>
+            <tr><td>2210</td><td>01 Okt 07:03</td><td><span class="muted">–</span></td><td><span class="badge b-danger">ID tidak dikenal</span></td></tr>
+            <tr><td>1057</td><td>01 Okt 15:01</td><td>Siti Aminah</td><td><span class="badge b-ok">Valid</span></td></tr>
+          </table>
+          <div class="between"><span class="btn ghost sm">Batal</span><span class="btn primary sm" style="padding:10px 16px;">Simpan 1.198 baris</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<footer>Mockup statis untuk review Phase 3. Warna: primer #1D4ED8 · sukses #15803D · peringatan #B45309 · bahaya #B91C1C · info #0369A1.</footer>
+</body>
+</html>

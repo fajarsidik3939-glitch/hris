@@ -25,6 +25,7 @@ export type EmployeeFormValues = {
   workType: string;
   attendanceMethod: string;
   fingerprintUserId: string;
+  defaultShiftId: string;
   workDays: number[];
 };
 
@@ -65,12 +66,14 @@ export function EmployeeForm({
   departments,
   positions,
   managers,
+  shifts,
 }: {
   initial: EmployeeFormValues;
   branches: Option[];
   departments: Option[];
   positions: Option[];
   managers: Option[];
+  shifts: Option[];
 }) {
   const [state, action, pending] = useActionState(saveEmployee, undefined);
   const e = state?.errors;
@@ -100,6 +103,7 @@ export function EmployeeForm({
         <Select name="workType" label="Tipe kerja" options={toOptions(WORK_TYPES)} value={initial.workType} errors={e?.workType} required />
         <Select name="attendanceMethod" label="Metode absen" options={toOptions(ATTENDANCE_METHODS)} value={initial.attendanceMethod} errors={e?.attendanceMethod} required />
         <FormField name="fingerprintUserId" label="ID di mesin fingerprint" defaultValue={initial.fingerprintUserId} errors={e?.fingerprintUserId} />
+        <Select name="defaultShiftId" label="Shift (jadwal tetap)" options={shifts} value={initial.defaultShiftId} errors={e?.defaultShiftId} />
         <div className="space-y-1.5 sm:col-span-2">
           <span className="text-sm font-medium">Hari kerja (jadwal tetap)</span>
           <div className="flex flex-wrap gap-2">

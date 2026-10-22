@@ -33,6 +33,7 @@ export default async function EditEmployeePage({ params }: PageProps<"/karyawan/
           workType: e.workType,
           attendanceMethod: e.attendanceMethod,
           fingerprintUserId: e.fingerprintUserId ?? "",
+          defaultShiftId: e.defaultShiftId ?? "",
           workDays: e.workDays,
         }}
       />

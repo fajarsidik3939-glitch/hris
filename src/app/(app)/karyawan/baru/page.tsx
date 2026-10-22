@@ -27,6 +27,7 @@ export default async function NewEmployeePage() {
           workType: "OFFICE",
           attendanceMethod: "SELFIE_GPS",
           fingerprintUserId: "",
+          defaultShiftId: "",
           workDays: [1, 2, 3, 4, 5],
         }}
       />

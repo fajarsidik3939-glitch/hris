@@ -40,13 +40,13 @@ model User {
 }
 
 model Session {
-  id         String   @id @default(uuid()) @db.Uuid
-  userId     String   @map("user_id") @db.Uuid
-  tokenHash  String   @unique @map("token_hash")
-  expiresAt  DateTime @map("expires_at") @db.Timestamptz
-  ip         String?
-  userAgent  String?  @map("user_agent")
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  tokenHash String   @unique @map("token_hash")
+  expiresAt DateTime @map("expires_at") @db.Timestamptz
+  ip        String?
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -209,7 +209,8 @@ model WorkLocation {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  branch Branch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  branch Branch            @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  events AttendanceEvent[]
 
   @@index([branchId])
   @@map("work_locations")
@@ -249,22 +250,124 @@ model Employee {
   workType          WorkType         @map("work_type")
   attendanceMethod  AttendanceMethod @map("attendance_method")
   fingerprintUserId String?          @unique @map("fingerprint_user_id")
+  defaultShiftId    String?          @map("default_shift_id") @db.Uuid
   // 1 = Senin … 7 = Minggu
   workDays          Int[]            @default([1, 2, 3, 4, 5]) @map("work_days") @db.SmallInt
   createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz
 
-  user         User?      @relation(fields: [userId], references: [id], onDelete: Restrict)
-  branch       Branch     @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  department   Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
-  position     Position   @relation(fields: [positionId], references: [id], onDelete: Restrict)
-  manager      Employee?  @relation("Reports", fields: [managerId], references: [id], onDelete: Restrict)
-  subordinates Employee[] @relation("Reports")
+  user             User?              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  branch           Branch             @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  department       Department         @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  position         Position           @relation(fields: [positionId], references: [id], onDelete: Restrict)
+  manager          Employee?          @relation("Reports", fields: [managerId], references: [id], onDelete: Restrict)
+  subordinates     Employee[]         @relation("Reports")
+  defaultShift     Shift?             @relation(fields: [defaultShiftId], references: [id], onDelete: Restrict)
+  attendance       AttendanceRecord[]
+  attendanceEvents AttendanceEvent[]
 
   @@index([branchId])
   @@index([departmentId])
   @@index([managerId])
   @@map("employees")
+}
+
+// ---------- Shift & absensi ----------
+
+// Jam disimpan sebagai menit sejak 00:00 WIB (0–1439); end < start = shift lintas tengah malam.
+model Shift {
+  id               String   @id @default(uuid()) @db.Uuid
+  code             String   @unique
+  name             String
+  startMinute      Int      @map("start_minute")
+  endMinute        Int      @map("end_minute")
+  lateToleranceMin Int      @default(15) @map("late_tolerance_min")
+  clockInWindowMin Int      @default(240) @map("clock_in_window_min")
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  employees Employee[]
+  records   AttendanceRecord[]
+
+  @@map("shifts")
+}
+
+enum AttendanceEventType {
+  IN
+  OUT
+  SCAN
+}
+
+enum AttendanceSource {
+  SELFIE
+  FINGERPRINT
+  CORRECTION
+}
+
+enum LocationLabel {
+  IN_RADIUS
+  OUT_OF_RADIUS
+  LOW_ACCURACY
+  FIELD
+  FINGERPRINT
+}
+
+// Satu baris = satu karyawan × satu tanggal kerja (tanggal mulai shift).
+model AttendanceRecord {
+  id                String         @id @default(uuid()) @db.Uuid
+  employeeId        String         @map("employee_id") @db.Uuid
+  workDate          DateTime       @map("work_date") @db.Date
+  shiftId           String?        @map("shift_id") @db.Uuid
+  scheduledStart    DateTime?      @map("scheduled_start") @db.Timestamptz
+  scheduledEnd      DateTime?      @map("scheduled_end") @db.Timestamptz
+  clockInAt         DateTime?      @map("clock_in_at") @db.Timestamptz
+  clockOutAt        DateTime?      @map("clock_out_at") @db.Timestamptz
+  lateMinutes       Int            @default(0) @map("late_minutes")
+  earlyLeaveMinutes Int            @default(0) @map("early_leave_minutes")
+  workMinutes       Int            @default(0) @map("work_minutes")
+  clockInLabel      LocationLabel? @map("clock_in_label")
+  clockOutLabel     LocationLabel? @map("clock_out_label")
+  hasCorrection     Boolean        @default(false) @map("has_correction")
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+
+  employee Employee          @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  shift    Shift?            @relation(fields: [shiftId], references: [id], onDelete: Restrict)
+  events   AttendanceEvent[]
+
+  @@unique([employeeId, workDate])
+  @@index([workDate])
+  @@map("attendance_records")
+}
+
+// Setiap tap selfie / scan / koreksi; tidak pernah diubah atau dihapus.
+model AttendanceEvent {
+  id                 String              @id @default(uuid()) @db.Uuid
+  attendanceRecordId String              @map("attendance_record_id") @db.Uuid
+  employeeId         String              @map("employee_id") @db.Uuid
+  type               AttendanceEventType
+  source             AttendanceSource
+  occurredAt         DateTime            @map("occurred_at") @db.Timestamptz
+  latitude           Decimal?            @db.Decimal(9, 6)
+  longitude          Decimal?            @db.Decimal(9, 6)
+  accuracyM          Decimal?            @map("accuracy_m") @db.Decimal(8, 1)
+  distanceM          Int?                @map("distance_m")
+  workLocationId     String?             @map("work_location_id") @db.Uuid
+  locationLabel      LocationLabel?      @map("location_label")
+  photoPath          String?             @map("photo_path")
+  ip                 String?
+  userAgent          String?             @map("user_agent")
+  idempotencyKey     String?             @unique @map("idempotency_key")
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz
+
+  record       AttendanceRecord @relation(fields: [attendanceRecordId], references: [id], onDelete: Restrict)
+  employee     Employee         @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  workLocation WorkLocation?    @relation(fields: [workLocationId], references: [id], onDelete: Restrict)
+
+  @@unique([employeeId, source, occurredAt])
+  @@index([attendanceRecordId])
+  @@map("attendance_events")
 }
 
 // ---------- Audit & pengaturan ----------

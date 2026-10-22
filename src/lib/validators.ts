@@ -125,6 +125,7 @@ export const employeeSchema = z
     workType: enumOf(WORK_TYPES),
     attendanceMethod: enumOf(ATTENDANCE_METHODS),
     fingerprintUserId: optionalText(30),
+    defaultShiftId: z.union([z.literal(""), z.uuid()]).transform((v) => v || null),
     workDays: z
       .array(z.coerce.number().int().min(1).max(7))
       .min(1, { error: "Pilih minimal satu hari kerja." })
@@ -148,3 +149,19 @@ export const employeeAccountSchema = z.object({
   employeeId: z.uuid(),
   roles: z.array(z.enum(HR_ASSIGNABLE_ROLES)).min(1, { error: "Pilih minimal satu role." }),
 });
+
+export const shiftSchema = z
+  .object({
+    code,
+    name: z.string().trim().min(2, { error: "Nama shift wajib diisi." }).max(50),
+    startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, { error: "Jam tidak valid." }),
+    endTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, { error: "Jam tidak valid." }),
+    lateToleranceMin: z.coerce.number({ error: "Angka tidak valid." }).int().min(0, { error: "Minimal 0." }).max(240, { error: "Maksimal 240 menit." }),
+    clockInWindowMin: z.coerce.number({ error: "Angka tidak valid." }).int().min(0, { error: "Minimal 0." }).max(720, { error: "Maksimal 720 menit." }),
+  })
+  .refine((d) => d.startTime !== d.endTime, { error: "Jam selesai harus berbeda dari jam mulai.", path: ["endTime"] })
+  .transform(({ startTime, endTime, ...rest }) => ({
+    ...rest,
+    startMinute: Number(startTime.slice(0, 2)) * 60 + Number(startTime.slice(3)),
+    endMinute: Number(endTime.slice(0, 2)) * 60 + Number(endTime.slice(3)),
+  }));

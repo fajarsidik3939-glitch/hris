@@ -25,6 +25,7 @@ Hanya keputusan yang sudah disetujui user (APPROVE) dicatat di sini.
 | 2026-10-22 | 5 | Super Admin tanpa akses data absensi/foto; saldo cuti tahunan diproses via tombol HR; absen di cabang lain = Luar radius. | APPROVED |
 | 2026-10-22 | 6 | Roadmap M0–M9 (`docs/IMPLEMENTATION_PLAN.md`); Phase 12 = Impor Fingerprint, Phase 14 Payroll SKIPPED; master shift dibuat di M3. | APPROVED |
 | 2026-10-23 | 7 | M1 (fondasi, auth, RBAC, audit, kelola pengguna) diterima; online di https://hris-2ohe.vercel.app. | APPROVED |
+| 2026-10-23 | 8 | M2 (organisasi, lokasi + peta, karyawan, scope data, akun karyawan) diterima. | APPROVED |
 
 ## Keputusan teknis kecil saat implementasi (default wajar, dicatat)
 | Tanggal | Milestone | Keputusan | Alasan |

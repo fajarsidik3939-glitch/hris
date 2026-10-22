@@ -76,6 +76,7 @@ describe("validator organisasi", () => {
     workType: "OFFICE",
     attendanceMethod: "SELFIE_GPS",
     fingerprintUserId: "",
+    defaultShiftId: "",
     workDays: ["5", "1", "3", "1"],
   };
 

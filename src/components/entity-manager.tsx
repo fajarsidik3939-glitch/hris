@@ -13,7 +13,7 @@ const MapPicker = dynamic(() => import("./map-picker").then((m) => m.MapPicker),
 export type FieldDef = {
   name: string;
   label: string;
-  type?: "text" | "date" | "number" | "select";
+  type?: "text" | "date" | "number" | "time" | "select";
   options?: { value: string; label: string }[];
   required?: boolean;
 };

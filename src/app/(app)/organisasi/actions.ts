@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import * as z from "zod";
 import { Prisma } from "@/generated/prisma/client";
-import { branchSchema, companySchema, holidaySchema, simpleMasterSchema, workLocationSchema } from "@/lib/validators";
+import { branchSchema, companySchema, holidaySchema, shiftSchema, simpleMasterSchema, workLocationSchema } from "@/lib/validators";
 import { db } from "@/server/db";
 import { writeAudit } from "@/server/audit";
 import { requirePermission } from "@/server/auth";
@@ -177,5 +177,22 @@ export async function saveWorkLocation(_: OrgState, formData: FormData): Promise
 export async function toggleWorkLocation(id: string) {
   await toggle("work_location", id, (id, isActive) => db.workLocation.update({ where: { id }, data: { isActive }, select: { isActive: true } }), () =>
     db.workLocation.findUnique({ where: { id }, select: { isActive: true } }),
+  );
+}
+
+// ---------- Shift ----------
+
+export async function saveShift(_: OrgState, formData: FormData): Promise<OrgState> {
+  return save("shift", formData, shiftSchema, {
+    find: (id) =>
+      db.shift.findUnique({ where: { id }, select: { code: true, name: true, startMinute: true, endMinute: true, lateToleranceMin: true, clockInWindowMin: true } }),
+    create: (data) => db.shift.create({ data }),
+    update: (id, data) => db.shift.update({ where: { id }, data }),
+  });
+}
+
+export async function toggleShift(id: string) {
+  await toggle("shift", id, (id, isActive) => db.shift.update({ where: { id }, data: { isActive }, select: { isActive: true } }), () =>
+    db.shift.findUnique({ where: { id }, select: { isActive: true } }),
   );
 }

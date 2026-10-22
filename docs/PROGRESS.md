@@ -10,8 +10,8 @@
 | 5 | Database Design, ERD & Business Rules | APPROVED (2026-10-22) |
 | 6 | Development Roadmap & Acceptance Criteria | APPROVED (2026-10-22) |
 | 7 | Implementation Foundation & Authentication | APPROVED (2026-10-23, login dari HP berhasil) |
-| 8 | Employee Management & Organization | READY FOR REVIEW |
-| 9 | Selfie GPS Attendance | NOT STARTED |
+| 8 | Employee Management & Organization | APPROVED (2026-10-23) |
+| 9 | Selfie GPS Attendance | IN PROGRESS |
 | 10 | Attendance Management, Shift & Scheduling | NOT STARTED |
 | 11 | Leave, Permission & Approval Workflow | NOT STARTED |
 | 12 | Impor Fingerprint (slot semula Overtime; lembur pindah ke Phase 15) | NOT STARTED |

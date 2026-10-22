@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { EntityManager } from "@/components/entity-manager";
+import { minuteToTime } from "@/lib/attendance";
 import { formatDateOnly, toIsoDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { db } from "@/server/db";
@@ -15,6 +16,7 @@ const TABS = {
   departemen: "Departemen",
   jabatan: "Jabatan",
   lokasi: "Lokasi Kerja",
+  shift: "Shift",
   "hari-libur": "Hari Libur",
 } as const;
 type Tab = keyof typeof TABS;
@@ -135,6 +137,43 @@ async function TabContent({ tab }: { tab: Tab }) {
           }))}
           save={actions.saveWorkLocation}
           toggle={actions.toggleWorkLocation}
+        />
+      );
+    }
+    case "shift": {
+      const rows = await db.shift.findMany({ orderBy: { startMinute: "asc" } });
+      return (
+        <EntityManager
+          title="Shift"
+          fields={[
+            { name: "code", label: "Kode", required: true },
+            { name: "name", label: "Nama shift", required: true },
+            { name: "startTime", label: "Jam mulai (WIB)", type: "time", required: true },
+            { name: "endTime", label: "Jam selesai (lewat 00:00 = shift malam)", type: "time", required: true },
+            { name: "lateToleranceMin", label: "Toleransi terlambat (menit)", type: "number", required: true },
+            { name: "clockInWindowMin", label: "Boleh clock-in sejak (menit sebelum mulai)", type: "number", required: true },
+          ]}
+          columns={["Kode", "Nama", "Jam", "Toleransi"]}
+          rows={rows.map((s) => ({
+            id: s.id,
+            isActive: s.isActive,
+            values: {
+              code: s.code,
+              name: s.name,
+              startTime: minuteToTime(s.startMinute),
+              endTime: minuteToTime(s.endMinute),
+              lateToleranceMin: String(s.lateToleranceMin),
+              clockInWindowMin: String(s.clockInWindowMin),
+            },
+            cells: [
+              s.code,
+              s.name,
+              `${minuteToTime(s.startMinute)}–${minuteToTime(s.endMinute)}${s.endMinute < s.startMinute ? " (+1 hari)" : ""}`,
+              `${s.lateToleranceMin} menit`,
+            ],
+          }))}
+          save={actions.saveShift}
+          toggle={actions.toggleShift}
         />
       );
     }

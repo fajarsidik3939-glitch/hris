@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { minuteToTime } from "@/lib/attendance";
 import { formatDateOnly, formatDateTime } from "@/lib/format";
 import { ATTENDANCE_METHODS, EMPLOYMENT_TYPES, WEEKDAYS, WORK_TYPES } from "@/lib/org";
 import { ROLES, type RoleCode } from "@/lib/permissions";
@@ -46,6 +47,7 @@ export default async function EmployeeDetailPage({ params, searchParams }: PageP
         department: { select: { name: true } },
         position: { select: { name: true } },
         manager: { select: { id: true, fullName: true } },
+        defaultShift: { select: { name: true, startMinute: true, endMinute: true } },
         user: { select: { loginId: true, isActive: true, roles: { select: { role: { select: { code: true } } } } } },
         _count: { select: { subordinates: { where: { status: "ACTIVE" } } } },
       },
@@ -67,8 +69,8 @@ export default async function EmployeeDetailPage({ params, searchParams }: PageP
   const names = new Map<string, string>();
   if (ids.length) {
     const where = { where: { id: { in: ids } }, select: { id: true, name: true } } as const;
-    const [b, d, p, m] = await Promise.all([db.branch.findMany(where), db.department.findMany(where), db.position.findMany(where), db.employee.findMany({ where: { id: { in: ids } }, select: { id: true, fullName: true } })]);
-    for (const r of [...b, ...d, ...p]) names.set(r.id, r.name);
+    const [b, d, p, m, s] = await Promise.all([db.branch.findMany(where), db.department.findMany(where), db.position.findMany(where), db.employee.findMany({ where: { id: { in: ids } }, select: { id: true, fullName: true } }), db.shift.findMany(where)]);
+    for (const r of [...b, ...d, ...p, ...s]) names.set(r.id, r.name);
     for (const r of m) names.set(r.id, r.fullName);
   }
 
@@ -140,6 +142,7 @@ export default async function EmployeeDetailPage({ params, searchParams }: PageP
             ["Tipe kerja", WORK_TYPES[e.workType]],
             ["Metode absen", ATTENDANCE_METHODS[e.attendanceMethod]],
             ["ID fingerprint", e.fingerprintUserId],
+            ["Shift", e.defaultShift ? `${e.defaultShift.name} (${minuteToTime(e.defaultShift.startMinute)}–${minuteToTime(e.defaultShift.endMinute)})` : "Tanpa shift"],
             ["Hari kerja", WEEKDAYS.filter((d) => e.workDays.includes(d.value)).map((d) => d.label).join(", ")],
           ]}
         />
@@ -199,6 +202,7 @@ const FIELD_LABELS: Record<string, string> = {
   workType: "Tipe kerja",
   attendanceMethod: "Metode absen",
   fingerprintUserId: "ID fingerprint",
+  defaultShiftId: "Shift",
   workDays: "Hari kerja",
   status: "Status",
   accountDisabled: "Akun ikut dinonaktifkan",

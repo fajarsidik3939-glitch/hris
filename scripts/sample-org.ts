@@ -37,7 +37,19 @@ const EMPLOYEES: [string, string, string, string, string, string | null, "OFFICE
   ["EMP-0008", "Rina Wati", "CKR", "HRGA", "STF", null, "OFFICE", "SELFIE_GPS", null, null],
 ];
 
+// Jam shift CONTOH (menit sejak 00:00 WIB); ganti sesuai jam pabrik di menu Organisasi → Shift.
+const SHIFTS: [string, string, number, number][] = [
+  ["KANTOR", "Kantor", 8 * 60, 17 * 60],
+  ["PAGI", "Pagi", 7 * 60, 15 * 60],
+  ["SIANG", "Siang", 15 * 60, 23 * 60],
+  ["MALAM", "Malam", 23 * 60, 7 * 60],
+];
+
 async function main() {
+  const shiftId: Record<string, string> = {};
+  for (const [code, name, startMinute, endMinute] of SHIFTS) {
+    shiftId[code] = (await db.shift.upsert({ where: { code }, update: {}, create: { code, name, startMinute, endMinute } })).id;
+  }
   const company = await db.company.findFirstOrThrow();
   const branchId: Record<string, string> = {};
   for (const b of BRANCHES) {
@@ -66,6 +78,7 @@ async function main() {
       attendanceMethod: method,
       fingerprintUserId: fp,
       userId: user?.id ?? null,
+      defaultShiftId: shiftId[workType === "SHIFT" ? "PAGI" : "KANTOR"],
     };
     const row = await db.employee.upsert({
       where: { employeeCode: code },
@@ -82,7 +95,7 @@ async function main() {
     const exists = await db.holiday.findFirst({ where: { date: new Date(date), branchId: null } });
     if (!exists) await db.holiday.create({ data: { date: new Date(date), name } });
   }
-  console.log("Data contoh siap: 3 cabang, 5 departemen, 4 jabatan, 8 karyawan, 2 hari libur.");
+  console.log("Data contoh siap: 3 cabang, 5 departemen, 4 jabatan, 4 shift, 8 karyawan, 2 hari libur.");
 }
 
 main().finally(() => db.$disconnect());

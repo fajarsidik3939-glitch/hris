@@ -34,6 +34,7 @@ model User {
   sessions  Session[]
   roles     UserRole[]
   auditLogs AuditLog[]
+  employee  Employee?
 
   @@map("users")
 }
@@ -110,6 +111,160 @@ model UserRole {
 
   @@id([userId, roleId])
   @@map("user_roles")
+}
+
+// ---------- Organisasi & karyawan ----------
+
+enum EmploymentType {
+  PKWTT
+  PKWT
+  HARIAN
+  MAGANG
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum WorkType {
+  OFFICE
+  SHIFT
+  FIELD
+}
+
+enum AttendanceMethod {
+  SELFIE_GPS
+  FINGERPRINT
+  BOTH
+}
+
+model Company {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  legalName String?  @map("legal_name")
+  address   String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  branches Branch[]
+
+  @@map("companies")
+}
+
+model Branch {
+  id        String   @id @default(uuid()) @db.Uuid
+  companyId String   @map("company_id") @db.Uuid
+  code      String   @unique
+  name      String
+  address   String?
+  timezone  String   @default("Asia/Jakarta")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  company       Company        @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  workLocations WorkLocation[]
+  holidays      Holiday[]
+  employees     Employee[]
+
+  @@map("branches")
+}
+
+model Department {
+  id        String   @id @default(uuid()) @db.Uuid
+  code      String   @unique
+  name      String
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  employees Employee[]
+
+  @@map("departments")
+}
+
+model Position {
+  id        String   @id @default(uuid()) @db.Uuid
+  code      String   @unique
+  name      String
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  employees Employee[]
+
+  @@map("positions")
+}
+
+model WorkLocation {
+  id        String   @id @default(uuid()) @db.Uuid
+  branchId  String   @map("branch_id") @db.Uuid
+  name      String
+  latitude  Decimal  @db.Decimal(9, 6)
+  longitude Decimal  @db.Decimal(9, 6)
+  // CHECK 10–5000 ada di migrasi.
+  radiusM   Int      @default(100) @map("radius_m")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+
+  @@index([branchId])
+  @@map("work_locations")
+}
+
+// Unique (date, branch_id) NULLS NOT DISTINCT dibuat manual di migrasi.
+model Holiday {
+  id        String   @id @default(uuid()) @db.Uuid
+  date      DateTime @db.Date
+  name      String
+  branchId  String?  @map("branch_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  branch Branch? @relation(fields: [branchId], references: [id], onDelete: Restrict)
+
+  @@index([date])
+  @@map("holidays")
+}
+
+model Employee {
+  id                String           @id @default(uuid()) @db.Uuid
+  userId            String?          @unique @map("user_id") @db.Uuid
+  employeeCode      String           @unique @map("employee_code")
+  fullName          String           @map("full_name")
+  email             String?
+  phone             String?
+  branchId          String           @map("branch_id") @db.Uuid
+  departmentId      String           @map("department_id") @db.Uuid
+  positionId        String           @map("position_id") @db.Uuid
+  // CHECK manager_id <> id ada di migrasi; siklus dicegah di aplikasi.
+  managerId         String?          @map("manager_id") @db.Uuid
+  hireDate          DateTime         @map("hire_date") @db.Date
+  endDate           DateTime?        @map("end_date") @db.Date
+  employmentType    EmploymentType   @map("employment_type")
+  status            EmployeeStatus   @default(ACTIVE)
+  workType          WorkType         @map("work_type")
+  attendanceMethod  AttendanceMethod @map("attendance_method")
+  fingerprintUserId String?          @unique @map("fingerprint_user_id")
+  // 1 = Senin … 7 = Minggu
+  workDays          Int[]            @default([1, 2, 3, 4, 5]) @map("work_days") @db.SmallInt
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+
+  user         User?      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  branch       Branch     @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  position     Position   @relation(fields: [positionId], references: [id], onDelete: Restrict)
+  manager      Employee?  @relation("Reports", fields: [managerId], references: [id], onDelete: Restrict)
+  subordinates Employee[] @relation("Reports")
+
+  @@index([branchId])
+  @@index([departmentId])
+  @@index([managerId])
+  @@map("employees")
 }
 
 // ---------- Audit & pengaturan ----------

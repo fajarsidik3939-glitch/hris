@@ -11,6 +11,8 @@ const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.
 const ACCOUNTS = [
   { loginId: "uji-admin", displayName: "Uji Super Admin", role: "SUPER_ADMIN" },
   { loginId: "uji-karyawan", displayName: "Uji Karyawan", role: "EMPLOYEE" },
+  { loginId: "uji-hr", displayName: "Uji HR Admin", role: "HR_ADMIN" },
+  { loginId: "uji-supervisor", displayName: "Uji Supervisor", role: "SUPERVISOR" },
 ];
 
 async function main() {

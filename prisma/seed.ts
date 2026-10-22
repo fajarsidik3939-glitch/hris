@@ -42,6 +42,11 @@ async function main() {
     }
   }
 
+  // MVP satu perusahaan; nama diubah HR di menu Organisasi.
+  if ((await db.company.count()) === 0) {
+    await db.company.create({ data: { name: "Nama Perusahaan" } });
+  }
+
   for (const [key, value] of Object.entries(SETTINGS)) {
     await db.systemSetting.upsert({ where: { key }, update: {}, create: { key, value: value as never } });
   }

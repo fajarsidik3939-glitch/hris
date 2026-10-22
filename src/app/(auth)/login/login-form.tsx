@@ -14,6 +14,7 @@ export function LoginForm() {
         <CardTitle className="text-center text-xl">Masuk ke HRIS</CardTitle>
       </CardHeader>
       <CardContent>
+        {/* Tetap `action` (bukan onSubmit) agar submit sebelum JS siap tetap POST, password tidak masuk URL. */}
         <form action={action} className="space-y-4">
           <FormField name="loginId" label="ID Karyawan / Email" autoComplete="username" required errors={state?.errors?.loginId} />
           <FormField name="password" label="Password" type="password" autoComplete="current-password" required errors={state?.errors?.password} />

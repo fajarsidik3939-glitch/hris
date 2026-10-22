@@ -24,6 +24,7 @@ Hanya keputusan yang sudah disetujui user (APPROVE) dicatat di sini.
 | 2026-10-22 | 5 | Tidak menyimpan KTP/NPWP/rekening di MVP; foto selfie dihapus otomatis setelah 12 bulan (configurable). | APPROVED |
 | 2026-10-22 | 5 | Super Admin tanpa akses data absensi/foto; saldo cuti tahunan diproses via tombol HR; absen di cabang lain = Luar radius. | APPROVED |
 | 2026-10-22 | 6 | Roadmap M0–M9 (`docs/IMPLEMENTATION_PLAN.md`); Phase 12 = Impor Fingerprint, Phase 14 Payroll SKIPPED; master shift dibuat di M3. | APPROVED |
+| 2026-10-23 | 7 | M1 (fondasi, auth, RBAC, audit, kelola pengguna) diterima; online di https://hris-2ohe.vercel.app. | APPROVED |
 
 ## Keputusan teknis kecil saat implementasi (default wajar, dicatat)
 | Tanggal | Milestone | Keputusan | Alasan |
@@ -33,3 +34,9 @@ Hanya keputusan yang sudah disetujui user (APPROVE) dicatat di sini.
 | 2026-10-22 | M1 | RLS diaktifkan di semua tabel (tanpa policy). | Supabase membuka skema `public` lewat REST API; RLS menutupnya. |
 | 2026-10-22 | M1 | Tanpa `SESSION_SECRET`. | Token sesi acak 32 byte dan hanya hash-nya disimpan, jadi tidak perlu kunci penanda tangan. |
 | 2026-10-22 | M1 | Prisma 7 memakai driver adapter `@prisma/adapter-pg`; `tsx` untuk menjalankan seed. | Kebutuhan Prisma 7. |
+| 2026-10-23 | M2 | HR (employee.manage) boleh membuat akun karyawan hanya dengan role Employee/Supervisor/Department Manager; role HR/Super Admin hanya lewat Super Admin. | Pemisahan tugas; HR tidak bisa memberi dirinya/rekan hak admin. |
+| 2026-10-23 | M2 | Hari libur boleh dihapus (tidak dirujuk data lain); isi sebelum dihapus disimpan di audit log. | Lebih sederhana daripada kolom aktif/nonaktif untuk data kalender. |
+| 2026-10-23 | M2 | Employee (scope OWN) yang membuka /karyawan langsung diarahkan ke profilnya. | Daftar & filter tidak berguna bila hanya 1 data. |
+| 2026-10-23 | M2 | Form panjang memakai submit tanpa reset (isian tidak hilang saat error) + `method="post"`; form login/password tetap `action` bawaan. | Mencegah isian hilang; mencegah password masuk URL bila JS belum siap. |
+| 2026-10-23 | M2 | Koneksi DB idle dipertahankan 5 menit. | Membuka koneksi baru ke pooler Supabase gratis kadang 9–16 detik. |
+| 2026-10-23 | M2 | Tabel di HP bisa digeser horizontal (belum diubah jadi kartu). | Cukup untuk halaman HR; kartu untuk halaman karyawan dibuat di M3/M4. |

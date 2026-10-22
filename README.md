@@ -12,6 +12,13 @@ Aplikasi HRIS (Next.js + PostgreSQL/Supabase). Dokumentasi proyek ada di `docs/`
 
 Login pertama: ID `admin` (atau nilai `SEED_ADMIN_LOGIN`) dengan `SEED_ADMIN_PASSWORD`; aplikasi akan meminta ganti password.
 
+## Data contoh (database DEV saja)
+
+- `npx tsx scripts/sample-org.ts` — 3 cabang, departemen, jabatan, 8 karyawan, hari libur.
+- `npx tsx scripts/create-test-accounts.ts` — akun uji (password di `.env.test-accounts`, tidak ikut Git).
+
+Setiap ada migrasi baru, jalankan `npm run db:migrate` sebelum/sesudah push agar database cocok dengan kode yang di-deploy Vercel.
+
 ## Perintah lain
 
 | Perintah | Fungsi |

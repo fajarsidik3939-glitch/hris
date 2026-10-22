@@ -12,6 +12,8 @@ export type CurrentUser = {
   mustChangePassword: boolean;
   roles: string[];
   permissions: Map<string, Scope>;
+  /** Data karyawan yang terhubung ke akun (null untuk akun non-karyawan, mis. Super Admin). */
+  employee: { id: string; departmentId: string } | null;
 };
 
 /** Pengguna yang sedang login (sekali per render), atau null. */
@@ -27,6 +29,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
       displayName: true,
       isActive: true,
       mustChangePassword: true,
+      employee: { select: { id: true, departmentId: true, status: true } },
       roles: {
         select: {
           role: {
@@ -52,6 +55,8 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     mustChangePassword: user.mustChangePassword,
     roles,
     permissions,
+    employee:
+      user.employee?.status === "ACTIVE" ? { id: user.employee.id, departmentId: user.employee.departmentId } : null,
   };
 });
 

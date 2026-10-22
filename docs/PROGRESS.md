@@ -9,8 +9,8 @@
 | 4 | System Architecture & Technology Selection | APPROVED (2026-10-22) |
 | 5 | Database Design, ERD & Business Rules | APPROVED (2026-10-22) |
 | 6 | Development Roadmap & Acceptance Criteria | APPROVED (2026-10-22) |
-| 7 | Implementation Foundation & Authentication | READY FOR REVIEW (menunggu uji login dari HP) |
-| 8 | Employee Management & Organization | NOT STARTED |
+| 7 | Implementation Foundation & Authentication | APPROVED (2026-10-23, login dari HP berhasil) |
+| 8 | Employee Management & Organization | READY FOR REVIEW |
 | 9 | Selfie GPS Attendance | NOT STARTED |
 | 10 | Attendance Management, Shift & Scheduling | NOT STARTED |
 | 11 | Leave, Permission & Approval Workflow | NOT STARTED |
@@ -94,5 +94,19 @@ Hasil uji end-to-end (browser, localhost):
 
 - Deploy: GitHub `main` → Vercel otomatis. `vercel.json` mengunci framework Next.js + region `sin1` (deploy pertama 404 karena preset terdeteksi salah).
 
+## Phase 8 / M2 — organisasi & karyawan (READY FOR REVIEW, 2026-10-23)
+Dibuat:
+- Migrasi `20261023000002_org_employee`: companies, branches, departments, positions, work_locations, holidays, employees + CHECK (radius 10–5000, koordinat, atasan ≠ diri, tgl keluar ≥ tgl masuk, hari kerja 1–7) + unique hari libur `NULLS NOT DISTINCT` + RLS. Sudah diterapkan ke Supabase dev.
+- `/organisasi` (org.manage): tab Perusahaan, Cabang, Departemen, Jabatan, Lokasi Kerja (peta Leaflet/OSM, klik untuk pilih titik, lingkaran radius), Hari Libur.
+- `/karyawan` (employee.read + scope): cari, filter cabang/dept/status, pagination 20; tambah/ubah (employee.manage); detail tab Profil/Pekerjaan/Riwayat Perubahan; nonaktifkan (tgl keluar + alasan, akun ikut nonaktif + sesi dihapus) & aktifkan kembali; buat akun login (ID = NIK, password sementara tampil sekali).
+- Scope data: OWN (Employee → langsung ke profil sendiri), TEAM (diri + bawahan langsung), DEPARTMENT, ALL; di luar scope → 404.
+- Data contoh dev: `scripts/sample-org.ts` (3 cabang, 5 dept, 4 jabatan, 8 karyawan, 2 hari libur; koordinat perkiraan). Akun uji tambahan: `uji-hr` (HR Admin).
+
+Hasil cek:
+- `npm test` 21/21 lulus (+ siklus atasan, scope, validator organisasi). typecheck, lint, build lulus.
+- Uji browser (localhost): NIK & ID fingerprint duplikat ditolak (keduanya sekaligus); metode fingerprint tanpa ID ditolak; siklus atasan ditolak; tgl keluar < tgl masuk ditolak; nonaktif → akun nonaktif; riwayat perubahan terbaca (label & nama, bukan ID); radius 5 m ditolak; hari libur ganda ditolak; klik peta mengisi koordinat; Supervisor lihat 3 orang (diri + 2 bawahan), data di luar tim 404, /organisasi & /karyawan/baru & /admin/pengguna 403; Employee hanya profil sendiri; tampilan 375 px tanpa scroll horizontal halaman.
+- Bug ditemukan & diperbaiki saat uji: (1) form login sebelum JS siap terkirim GET → password di URL (dev, akun uji) — login kembali pakai `action`, form lain `method="post"`; (2) password sementara akun karyawan hilang dari layar setelah refresh; (3) peta tidak pindah ke titik lokasi saat dibuka; (4) duplikat NIK + fingerprint hanya 1 error.
+- Kinerja: membuka koneksi baru ke pooler Supabase kadang 9–16 detik dari laptop ini (TCP ±50 ms, query ±50 ms) → koneksi idle dipertahankan 5 menit. Halaman normal 0,4–0,6 detik; request pertama setelah server start tetap lambat.
+
 ## Langkah berikutnya
-User mencoba login `admin` dari HP di URL Vercel → approval Phase 7. Setelah APPROVE: Phase 8 / M2 (Organisasi & Karyawan). Setelah Phase 1 di-APPROVE, lanjut ke Phase 2 (Mind Map & Scope).
+Approval Phase 8. Setelah APPROVE: Phase 9 / M3 (Selfie GPS Attendance + master shift) — butuh 1 HP Android + 1 iPhone untuk uji, dan jam shift yang berlaku. Setelah Phase 1 di-APPROVE, lanjut ke Phase 2 (Mind Map & Scope).

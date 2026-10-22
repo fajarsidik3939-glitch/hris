@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { KeyRound, LogOut } from "lucide-react";
+import { Bell, KeyRound, LogOut } from "lucide-react";
 import { ROLES, type RoleCode } from "@/lib/permissions";
 import { visibleNav } from "@/lib/nav";
 import { requireUser } from "@/server/auth";
+import { db } from "@/server/db";
 import { logout } from "../(auth)/actions";
 import { BottomNav, SideNav } from "./nav-links";
 
@@ -10,6 +11,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   // Tampilan menu saja; setiap halaman tetap memeriksa izinnya sendiri.
   const user = await requireUser();
   const items = visibleNav(user.permissions).map(({ href, label, icon }) => ({ href, label, icon }));
+  const unread = await db.notification.count({ where: { userId: user.id, readAt: null } });
   const roleNames = user.roles.map((r) => ROLES[r as RoleCode] ?? r).join(", ");
 
   return (
@@ -25,6 +27,16 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
             <p className="truncate font-semibold">{user.displayName}</p>
             <p className="truncate text-xs text-muted-foreground">{roleNames}</p>
           </div>
+          <Link
+            href="/notifikasi"
+            className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-md hover:bg-slate-100"
+            aria-label={unread ? `Notifikasi, ${unread} belum dibaca` : "Notifikasi"}
+          >
+            <Bell className="size-5" />
+            {unread > 0 && (
+              <span className="absolute top-1 right-1 min-w-5 rounded-full bg-red-600 px-1 text-center text-[11px] leading-5 font-bold text-white">{unread > 99 ? "99+" : unread}</span>
+            )}
+          </Link>
           <Link
             href="/ganti-password"
             className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-md px-2 text-sm hover:bg-slate-100"

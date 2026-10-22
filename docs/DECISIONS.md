@@ -26,6 +26,7 @@ Hanya keputusan yang sudah disetujui user (APPROVE) dicatat di sini.
 | 2026-10-22 | 6 | Roadmap M0–M9 (`docs/IMPLEMENTATION_PLAN.md`); Phase 12 = Impor Fingerprint, Phase 14 Payroll SKIPPED; master shift dibuat di M3. | APPROVED |
 | 2026-10-23 | 7 | M1 (fondasi, auth, RBAC, audit, kelola pengguna) diterima; online di https://hris-2ohe.vercel.app. | APPROVED |
 | 2026-10-23 | 8 | M2 (organisasi, lokasi + peta, karyawan, scope data, akun karyawan) diterima. | APPROVED |
+| 2026-10-23 | 9 | M3 (shift, absensi selfie GPS, foto privat, Beranda/Absen/Riwayat) diterima; diuji di Android. | APPROVED |
 
 ## Keputusan teknis kecil saat implementasi (default wajar, dicatat)
 | Tanggal | Milestone | Keputusan | Alasan |
@@ -45,3 +46,7 @@ Hanya keputusan yang sudah disetujui user (APPROVE) dicatat di sini.
 | 2026-10-23 | M3 | Jadwal rotasi per tanggal ditunda ke M4; M3 memakai shift default + hari kerja per karyawan. | Cukup untuk clock-in; rotasi dibuat saat dipakai. |
 | 2026-10-23 | M3 | Foto ke Supabase Storage lewat REST (tanpa SDK); bucket `attendance-photos` privat, JPEG ≤ 1 MB. | Tanpa dependency tambahan. |
 | 2026-10-23 | M3 | Tap berikutnya = pulang hanya bila absensi masih terbuka atau tanggal kerjanya sama (clock-out ulang); selain itu masuk. Lupa clock-in diselesaikan lewat koreksi (M4). | Mencegah shift berurutan tercatat sebagai pulang. |
+| 2026-10-23 | M4 | Tahap atasan hanya bisa diputuskan atasan langsung yang tercatat saat pengajuan (dan punya izin approval.manager); HR tidak bisa melompati tahap atasan. | Sesuai §5.8; atasan tanpa role Supervisor perlu diberi role agar pengajuan tidak tertahan. |
+| 2026-10-23 | M4 | Foto di Kehadiran tampil dalam dialog; peta lewat link OpenStreetMap (bukan peta di dalam dialog). | Lebih sederhana; informasi jarak & akurasi tetap tampil. |
+| 2026-10-23 | M4 | Notifikasi ditandai dibaca lewat tombol "Tandai semua dibaca", bukan otomatis saat halaman dibuka. | Prefetch halaman tidak boleh menandai baca tanpa dilihat. |
+| 2026-10-23 | M4 | Jadwal & Kehadiran memuat semua karyawan dalam scope di satu query (±100 orang). | Cukup untuk skala perusahaan; pagination/batching bila > 300 karyawan. |

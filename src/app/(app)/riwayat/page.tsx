@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { LocationBadge } from "@/components/location-badge";
 import { addDays, wibDate } from "@/lib/attendance";
 import { formatDateOnly } from "@/lib/format";
@@ -21,9 +22,14 @@ export default async function RiwayatPage() {
 
   return (
     <div className="mx-auto max-w-md space-y-3">
-      <div>
-        <h1 className="text-xl font-bold">Riwayat Absensi</h1>
-        <p className="text-sm text-muted-foreground">31 hari terakhir</p>
+      <div className="flex items-end justify-between gap-2">
+        <div>
+          <h1 className="text-xl font-bold">Riwayat Absensi</h1>
+          <p className="text-sm text-muted-foreground">31 hari terakhir</p>
+        </div>
+        <Link href="/pengajuan/koreksi" className="text-sm font-semibold text-primary">
+          Lupa absen sehari penuh?
+        </Link>
       </div>
       {records.length === 0 && <p className="rounded-lg border bg-white p-6 text-center text-sm text-muted-foreground">Belum ada absensi.</p>}
       <ul className="space-y-2">
@@ -43,7 +49,11 @@ export default async function RiwayatPage() {
                 <span className="rounded-full bg-red-100 px-2 py-0.5 font-semibold text-red-800">✕ Belum clock-out</span>
               )}
               {r.clockOutAt && <span className="ml-auto text-muted-foreground">{Math.floor(r.workMinutes / 60)}j {r.workMinutes % 60}m</span>}
+              {r.hasCorrection && <span className="text-muted-foreground">· dikoreksi</span>}
             </div>
+            <Link href={`/pengajuan/koreksi?tanggal=${r.workDate.toISOString().slice(0, 10)}`} className="mt-1 inline-block text-xs font-semibold text-primary">
+              Ajukan koreksi
+            </Link>
             {r.events.length > 0 && (
               <div className="mt-1.5 flex gap-3 text-xs">
                 {r.events.map((e) => (

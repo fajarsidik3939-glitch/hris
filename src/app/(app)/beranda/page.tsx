@@ -27,11 +27,12 @@ export default async function BerandaPage() {
       {status && (
         <Card>
           <CardContent className="space-y-4 pt-6">
-            {status.employee?.defaultShift && (
+            {status.todayShift ? (
               <p className="text-sm">
-                <b>{status.employee.defaultShift.name}</b> {minuteToTime(status.employee.defaultShift.startMinute)}–{minuteToTime(status.employee.defaultShift.endMinute)} ·{" "}
-                {status.employee.branch.name}
+                <b>{status.todayShift.name}</b> {minuteToTime(status.todayShift.startMinute)}–{minuteToTime(status.todayShift.endMinute)} · {status.employee.branch.name}
               </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">Hari ini tidak ada jadwal kerja · {status.employee.branch.name}</p>
             )}
             {selfie ? (
               <Link

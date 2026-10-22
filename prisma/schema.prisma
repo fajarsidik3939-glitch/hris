@@ -31,10 +31,12 @@ model User {
   createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
-  sessions  Session[]
-  roles     UserRole[]
-  auditLogs AuditLog[]
-  employee  Employee?
+  sessions      Session[]
+  roles         UserRole[]
+  auditLogs     AuditLog[]
+  employee      Employee?
+  notifications Notification[]
+  decidedSteps  ApprovalStep[] @relation("StepDecider")
 
   @@map("users")
 }
@@ -256,15 +258,19 @@ model Employee {
   createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz
 
-  user             User?              @relation(fields: [userId], references: [id], onDelete: Restrict)
-  branch           Branch             @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  department       Department         @relation(fields: [departmentId], references: [id], onDelete: Restrict)
-  position         Position           @relation(fields: [positionId], references: [id], onDelete: Restrict)
-  manager          Employee?          @relation("Reports", fields: [managerId], references: [id], onDelete: Restrict)
-  subordinates     Employee[]         @relation("Reports")
-  defaultShift     Shift?             @relation(fields: [defaultShiftId], references: [id], onDelete: Restrict)
+  user             User?                  @relation(fields: [userId], references: [id], onDelete: Restrict)
+  branch           Branch                 @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  department       Department             @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  position         Position               @relation(fields: [positionId], references: [id], onDelete: Restrict)
+  manager          Employee?              @relation("Reports", fields: [managerId], references: [id], onDelete: Restrict)
+  subordinates     Employee[]             @relation("Reports")
+  defaultShift     Shift?                 @relation(fields: [defaultShiftId], references: [id], onDelete: Restrict)
   attendance       AttendanceRecord[]
   attendanceEvents AttendanceEvent[]
+  schedules        EmployeeSchedule[]
+  corrections      AttendanceCorrection[]
+  requests         ApprovalRequest[]      @relation("Requester")
+  approvalSteps    ApprovalStep[]         @relation("StepApprover")
 
   @@index([branchId])
   @@index([departmentId])
@@ -289,6 +295,7 @@ model Shift {
 
   employees Employee[]
   records   AttendanceRecord[]
+  schedules EmployeeSchedule[]
 
   @@map("shifts")
 }
@@ -332,9 +339,10 @@ model AttendanceRecord {
   createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime       @updatedAt @map("updated_at") @db.Timestamptz
 
-  employee Employee          @relation(fields: [employeeId], references: [id], onDelete: Restrict)
-  shift    Shift?            @relation(fields: [shiftId], references: [id], onDelete: Restrict)
-  events   AttendanceEvent[]
+  employee    Employee               @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  shift       Shift?                 @relation(fields: [shiftId], references: [id], onDelete: Restrict)
+  events      AttendanceEvent[]
+  corrections AttendanceCorrection[]
 
   @@unique([employeeId, workDate])
   @@index([workDate])
@@ -368,6 +376,124 @@ model AttendanceEvent {
   @@unique([employeeId, source, occurredAt])
   @@index([attendanceRecordId])
   @@map("attendance_events")
+}
+
+// Pengecualian/rotasi jadwal per tanggal; shift null = libur. Tanpa baris = shift default + hari kerja.
+model EmployeeSchedule {
+  id         String   @id @default(uuid()) @db.Uuid
+  employeeId String   @map("employee_id") @db.Uuid
+  workDate   DateTime @map("work_date") @db.Date
+  shiftId    String?  @map("shift_id") @db.Uuid
+  note       String?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  shift    Shift?   @relation(fields: [shiftId], references: [id], onDelete: Restrict)
+
+  @@unique([employeeId, workDate])
+  @@index([workDate])
+  @@map("employee_schedules")
+}
+
+// ---------- Approval, koreksi, notifikasi ----------
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum ApprovalKind {
+  LEAVE
+  CORRECTION
+}
+
+enum ApproverType {
+  MANAGER
+  HR
+}
+
+enum StepDecision {
+  PENDING
+  APPROVED
+  REJECTED
+  SKIPPED
+}
+
+model ApprovalRequest {
+  id                  String        @id @default(uuid()) @db.Uuid
+  kind                ApprovalKind
+  requesterEmployeeId String        @map("requester_employee_id") @db.Uuid
+  status              RequestStatus @default(PENDING)
+  currentStep         Int           @map("current_step")
+  createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  decidedAt           DateTime?     @map("decided_at") @db.Timestamptz
+
+  requester  Employee              @relation("Requester", fields: [requesterEmployeeId], references: [id], onDelete: Restrict)
+  steps      ApprovalStep[]
+  correction AttendanceCorrection?
+
+  @@index([status, currentStep])
+  @@map("approval_requests")
+}
+
+model ApprovalStep {
+  id                 String       @id @default(uuid()) @db.Uuid
+  approvalRequestId  String       @map("approval_request_id") @db.Uuid
+  stepNo             Int          @map("step_no")
+  approverType       ApproverType @map("approver_type")
+  approverEmployeeId String?      @map("approver_employee_id") @db.Uuid
+  decision           StepDecision @default(PENDING)
+  decidedBy          String?      @map("decided_by") @db.Uuid
+  comment            String?
+  decidedAt          DateTime?    @map("decided_at") @db.Timestamptz
+
+  request  ApprovalRequest @relation(fields: [approvalRequestId], references: [id], onDelete: Restrict)
+  approver Employee?       @relation("StepApprover", fields: [approverEmployeeId], references: [id], onDelete: Restrict)
+  decider  User?           @relation("StepDecider", fields: [decidedBy], references: [id], onDelete: Restrict)
+
+  @@unique([approvalRequestId, stepNo])
+  @@index([approverEmployeeId, decision])
+  @@map("approval_steps")
+}
+
+model AttendanceCorrection {
+  id                 String        @id @default(uuid()) @db.Uuid
+  employeeId         String        @map("employee_id") @db.Uuid
+  workDate           DateTime      @map("work_date") @db.Date
+  attendanceRecordId String?       @map("attendance_record_id") @db.Uuid
+  requestedClockIn   DateTime?     @map("requested_clock_in") @db.Timestamptz
+  requestedClockOut  DateTime?     @map("requested_clock_out") @db.Timestamptz
+  reason             String
+  status             RequestStatus @default(PENDING)
+  approvalRequestId  String        @unique @map("approval_request_id") @db.Uuid
+  createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz
+
+  employee Employee          @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  record   AttendanceRecord? @relation(fields: [attendanceRecordId], references: [id], onDelete: Restrict)
+  request  ApprovalRequest   @relation(fields: [approvalRequestId], references: [id], onDelete: Restrict)
+
+  @@index([employeeId, workDate])
+  @@map("attendance_corrections")
+}
+
+model Notification {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  type      String
+  title     String
+  body      String?
+  link      String?
+  readAt    DateTime? @map("read_at") @db.Timestamptz
+  dedupeKey String    @unique @map("dedupe_key")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@map("notifications")
 }
 
 // ---------- Audit & pengaturan ----------

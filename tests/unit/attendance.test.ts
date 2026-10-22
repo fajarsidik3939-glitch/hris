@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   decideAction,
+  computeRecord,
+  correctionTimes,
+  dayStatus,
   earlyLeaveMinutes,
   haversineM,
   isJpeg,
@@ -10,6 +13,7 @@ import {
   minuteToTime,
   resolveWorkDate,
   scheduleFor,
+  shiftResolver,
   timeToMinute,
   wibDate,
 } from "@/lib/attendance";
@@ -37,6 +41,11 @@ describe("tanggal & jam WIB", () => {
 });
 
 describe("jadwal & tanggal kerja", () => {
+  const P = { ...pagi, id: "P", lateToleranceMin: 15 };
+  const M = { ...malam, id: "M", lateToleranceMin: 15 };
+  const on = (def: typeof P | null, overrides: [string, typeof P | null][] = [], holidays: string[] = []) =>
+    shiftResolver({ defaultShift: def, workDays: weekdays, holidays: new Set(holidays), overrides: new Map(overrides) });
+
   it("shift malam selesai keesokan hari", () => {
     const s = scheduleFor("2026-10-22", malam);
     expect(s.start).toEqual(wib("2026-10-22T22:00:00"));
@@ -44,22 +53,27 @@ describe("jadwal & tanggal kerja", () => {
   });
 
   it("clock-in 21:50 dan clock-out 06:05 → tanggal kerja hari pertama", () => {
-    expect(resolveWorkDate(wib("2026-10-22T21:50:00"), malam, weekdays, new Set()).workDate).toBe("2026-10-22");
-    // Jumat 23 Okt 05:30 masih dalam shift Kamis malam
-    expect(resolveWorkDate(wib("2026-10-23T05:30:00"), malam, weekdays, new Set()).workDate).toBe("2026-10-22");
+    expect(resolveWorkDate(wib("2026-10-22T21:50:00"), on(M)).workDate).toBe("2026-10-22");
+    expect(resolveWorkDate(wib("2026-10-23T05:30:00"), on(M)).workDate).toBe("2026-10-22");
   });
 
   it("shift pagi: jendela mulai 4 jam sebelum jam masuk", () => {
-    const r = resolveWorkDate(wib("2026-10-22T07:58:00"), pagi, weekdays, new Set());
+    const r = resolveWorkDate(wib("2026-10-22T07:58:00"), on(P));
     expect(r.workDate).toBe("2026-10-22");
     expect(r.schedule?.start).toEqual(wib("2026-10-22T08:00:00"));
-    expect(resolveWorkDate(wib("2026-10-22T03:00:00"), pagi, weekdays, new Set()).schedule).toBeNull();
+    expect(resolveWorkDate(wib("2026-10-22T03:00:00"), on(P)).schedule).toBeNull();
   });
 
   it("hari libur / bukan hari kerja / tanpa shift → tetap diterima, tanpa jadwal", () => {
-    expect(resolveWorkDate(wib("2026-10-22T08:00:00"), pagi, weekdays, new Set(["2026-10-22"])).schedule).toBeNull();
-    expect(resolveWorkDate(wib("2026-10-25T08:00:00"), pagi, weekdays, new Set())).toEqual({ workDate: "2026-10-25", schedule: null });
-    expect(resolveWorkDate(wib("2026-10-22T08:00:00"), null, weekdays, new Set()).workDate).toBe("2026-10-22");
+    expect(resolveWorkDate(wib("2026-10-22T08:00:00"), on(P, [], ["2026-10-22"])).schedule).toBeNull();
+    expect(resolveWorkDate(wib("2026-10-25T08:00:00"), on(P))).toMatchObject({ workDate: "2026-10-25", schedule: null });
+    expect(resolveWorkDate(wib("2026-10-22T08:00:00"), on(null)).workDate).toBe("2026-10-22");
+  });
+
+  it("jadwal per tanggal menang: rotasi ke shift malam, libur di hari kerja, masuk di hari Minggu/libur", () => {
+    expect(on(P, [["2026-10-22", M]])("2026-10-22")?.id).toBe("M");
+    expect(on(P, [["2026-10-22", null]])("2026-10-22")).toBeNull();
+    expect(on(P, [["2026-10-25", P]], ["2026-10-25"])("2026-10-25")?.id).toBe("P");
   });
 });
 
@@ -117,5 +131,46 @@ describe("masuk atau pulang", () => {
   });
   it("sudah pulang, tap lagi di tanggal kerja yang sama → clock-out ulang", () => {
     expect(decideAction(wib("2026-10-22T17:30:00"), rec("2026-10-22", "2026-10-22T08:00:00", "2026-10-22T17:00:00"), "2026-10-22")).toBe("OUT");
+  });
+});
+
+describe("status harian (rekap)", () => {
+  const sched = scheduleFor("2026-10-22", pagi); // 08:00–17:00
+  const rec = (inAt: string | null, outAt: string | null, late = 0) => ({ clockInAt: inAt ? wib(inAt) : null, clockOutAt: outAt ? wib(outAt) : null, lateMinutes: late });
+  const at = wib("2026-10-22T12:00:00");
+  const after = wib("2026-10-22T18:00:00");
+
+  it("terjadwal tanpa absen: belum absen saat shift berjalan, tidak hadir setelah selesai", () => {
+    expect(dayStatus(at, "2026-10-22", sched, null)).toBe("BELUM_ABSEN");
+    expect(dayStatus(after, "2026-10-22", sched, null)).toBe("TIDAK_HADIR");
+  });
+  it("tidak terjadwal & tanpa absen → libur (bukan tidak hadir)", () => {
+    expect(dayStatus(after, "2026-10-25", null, null)).toBe("LIBUR");
+  });
+  it("hadir / terlambat / belum clock-out", () => {
+    expect(dayStatus(after, "2026-10-22", sched, rec("2026-10-22T07:55:00", "2026-10-22T17:00:00"))).toBe("HADIR");
+    expect(dayStatus(after, "2026-10-22", sched, rec("2026-10-22T08:30:00", "2026-10-22T17:00:00", 30))).toBe("TERLAMBAT");
+    expect(dayStatus(at, "2026-10-22", sched, rec("2026-10-22T07:55:00", null))).toBe("HADIR");
+    expect(dayStatus(after, "2026-10-22", sched, rec("2026-10-22T07:55:00", null))).toBe("BELUM_CLOCK_OUT");
+  });
+  it("absen tanpa jadwal: belum clock-out baru setelah tanggalnya lewat", () => {
+    expect(dayStatus(wib("2026-10-25T20:00:00"), "2026-10-25", null, rec("2026-10-25T09:00:00", null))).toBe("HADIR");
+    expect(dayStatus(wib("2026-10-26T08:00:00"), "2026-10-25", null, rec("2026-10-25T09:00:00", null))).toBe("BELUM_CLOCK_OUT");
+  });
+});
+
+describe("koreksi absensi", () => {
+  it("jam pulang < jam masuk = keesokan hari (shift malam)", () => {
+    const t = correctionTimes("2026-10-22", "22:00", "06:00");
+    expect(t.inAt).toEqual(wib("2026-10-22T22:00:00"));
+    expect(t.outAt).toEqual(wib("2026-10-23T06:00:00"));
+  });
+  it("hanya jam pulang (lupa clock-out)", () => {
+    expect(correctionTimes("2026-10-22", null, "17:00")).toEqual({ inAt: null, outAt: wib("2026-10-22T17:00:00") });
+  });
+  it("hitung ulang record setelah koreksi", () => {
+    const s = scheduleFor("2026-10-22", pagi);
+    expect(computeRecord(wib("2026-10-22T08:20:00"), wib("2026-10-22T16:30:00"), s, 15)).toEqual({ lateMinutes: 20, earlyLeaveMinutes: 30, workMinutes: 490 });
+    expect(computeRecord(wib("2026-10-22T08:00:00"), null, s, 15)).toEqual({ lateMinutes: 0, earlyLeaveMinutes: 0, workMinutes: 0 });
   });
 });

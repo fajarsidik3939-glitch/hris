@@ -11,8 +11,8 @@
 | 6 | Development Roadmap & Acceptance Criteria | APPROVED (2026-10-22) |
 | 7 | Implementation Foundation & Authentication | APPROVED (2026-10-23, login dari HP berhasil) |
 | 8 | Employee Management & Organization | APPROVED (2026-10-23) |
-| 9 | Selfie GPS Attendance | READY FOR REVIEW |
-| 10 | Attendance Management, Shift & Scheduling | NOT STARTED |
+| 9 | Selfie GPS Attendance | APPROVED (2026-10-23) |
+| 10 | Attendance Management, Shift & Scheduling | READY FOR REVIEW |
 | 11 | Leave, Permission & Approval Workflow | NOT STARTED |
 | 12 | Impor Fingerprint (slot semula Overtime; lembur pindah ke Phase 15) | NOT STARTED |
 | 13 | Dashboard, Reports & Notifications | NOT STARTED |
@@ -130,5 +130,22 @@ Hasil cek (localhost, akun uji-karyawan, foto JPEG uji dari canvas karena kamera
 - Uji HP oleh user (23 Okt 05:54): Android — login, clock-in selfie GPS sukses; akurasi ±11,7 m; foto 34 KB; label Luar radius 30,5 km (koordinat pabrik masih contoh). User menyatakan sukses dan minta lanjut.
 - BELUM diuji: iPhone/Safari, clock-out dari HP (jeda 30 menit), jalur izin ditolak di HP.
 
+
+## Phase 10 / M4 — jadwal, kehadiran, koreksi & approval (READY FOR REVIEW, 2026-10-23)
+Dibuat:
+- Migrasi `20261023000004_schedule_approval`: employee_schedules (jadwal per tanggal; shift null = libur), approval_requests, approval_steps, attendance_corrections, notifications (+ CHECK alasan/jam/komentar tolak, RLS).
+- `/jadwal` (schedule.read/manage): grid mingguan; HR centang karyawan + rentang tanggal → shift / libur / kembali ke default (maks. 62 hari). Jadwal per tanggal menang atas shift default & hari libur.
+- `/kehadiran` (attendance.read, disembunyikan untuk scope OWN): harian (status semua karyawan termasuk yang belum absen, label lokasi, foto di dialog + link peta OSM, filter cabang/dept/status/label, pagination) & rekap bulanan (hadir, terlambat, tidak hadir, belum clock-out, libur, total terlambat & jam kerja). Hari sebelum tanggal masuk tidak dihitung.
+- Koreksi: `/pengajuan/koreksi` (jam masuk/pulang, alasan ≥ 10, maks. 31 hari ke belakang, tidak di masa depan, dicek terhadap jam yang sudah tercatat, 1 koreksi menunggu per tanggal) → `/pengajuan` (status per tahap, batalkan).
+- `/approval`: tahap atasan (atasan tercatat + approval.manager) → tahap HR (approval.hr); tolak wajib alasan; baris dikunci (SELECT … FOR UPDATE) saat memutuskan; koreksi final → event CORRECTION + hitung ulang record (data asli tetap).
+- Notifikasi in-app: lonceng + jumlah belum dibaca, `/notifikasi` (tandai semua dibaca); dedupe per kejadian × penerima.
+- Clock-in (M3) kini memakai jadwal per tanggal (rotasi) via `loadShiftResolvers`.
+
+Hasil cek:
+- `npm test` 53/53 (+ jadwal per tanggal, status harian, koreksi, aturan approval). typecheck, lint, build lulus.
+- Uji browser (HR → karyawan → supervisor → HR): jadwal Malam 2 orang × 2 hari tersimpan; Kehadiran harian (Hadir/Belum absen benar), foto di dialog, filter Luar radius, rekap bulanan; validasi koreksi (tanpa jam, masa depan, alasan pendek); koreksi 22 Okt disetujui atasan → HR → diterapkan (08:00–17:00, Terlambat 60m vs shift Pagi, "Dikoreksi"); koreksi 21 Okt ditolak atasan dengan alasan → tidak diteruskan ke HR; notifikasi tepat sasaran tanpa dobel; audit lengkap.
+- Diperbaiki saat uji: rekap menghitung hari sebelum tanggal masuk sebagai tidak hadir; koreksi jam masuk saja bisa melewati jam pulang tercatat; pesan masa depan di field yang salah.
+- Belum: uji di HP untuk halaman baru; ekspor Excel (M7); cuti/izin di status harian (M5).
+
 ## Langkah berikutnya
-Approval Phase 9. Setelah APPROVE: Phase 10 / M4 (jadwal rotasi, rekap kehadiran, halaman Kehadiran HR, approval engine + koreksi, notifikasi).
+Approval Phase 10. Setelah APPROVE: Phase 11 / M5 (cuti & izin + saldo, memakai approval engine yang sama).

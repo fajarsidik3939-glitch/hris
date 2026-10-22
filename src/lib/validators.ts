@@ -165,3 +165,22 @@ export const shiftSchema = z
     startMinute: Number(startTime.slice(0, 2)) * 60 + Number(startTime.slice(3)),
     endMinute: Number(endTime.slice(0, 2)) * 60 + Number(endTime.slice(3)),
   }));
+
+const hhmm = z.union([z.literal(""), z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, { error: "Jam tidak valid." })]).transform((v) => v || null);
+
+export const correctionSchema = z
+  .object({
+    workDate: isoDate,
+    clockIn: hhmm,
+    clockOut: hhmm,
+    reason: z.string().trim().min(10, { error: "Alasan minimal 10 karakter." }).max(300),
+  })
+  .refine((d) => d.clockIn || d.clockOut, { error: "Isi jam masuk, jam pulang, atau keduanya.", path: ["clockIn"] });
+
+export const scheduleAssignSchema = z.object({
+  employeeIds: z.array(z.uuid()).min(1, { error: "Pilih minimal satu karyawan." }),
+  from: isoDate,
+  to: isoDate,
+  // "" = kembalikan ke shift default; "OFF" = libur; selain itu id shift
+  shiftId: z.union([z.literal(""), z.literal("OFF"), z.uuid()]),
+});

@@ -116,16 +116,16 @@ export async function POST(req: Request) {
           },
         });
       } else {
-        const { workDate, schedule } = resolved;
+        const { workDate, schedule, shift } = resolved;
         const existing = await tx.attendanceRecord.findUnique({ where: { employeeId_workDate: { employeeId, workDate: new Date(workDate) } } });
         if (existing?.clockInAt) throw new DuplicateError(existing.clockInAt);
         const data = {
-          shiftId: schedule ? employee.defaultShift!.id : null,
+          shiftId: shift?.id ?? null,
           scheduledStart: schedule?.start ?? null,
           scheduledEnd: schedule?.end ?? null,
           clockInAt: now,
           clockInLabel: loc.label,
-          lateMinutes: schedule ? lateMinutes(now, schedule.start, employee.defaultShift!.lateToleranceMin) : 0,
+          lateMinutes: schedule && shift ? lateMinutes(now, schedule.start, shift.lateToleranceMin) : 0,
         };
         record = existing
           ? await tx.attendanceRecord.update({ where: { id: existing.id }, data })

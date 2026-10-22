@@ -1,6 +1,7 @@
 import "server-only";
 import { addDays, decideAction, resolveWorkDate, wibDate } from "@/lib/attendance";
 import { db } from "./db";
+import { loadShiftResolvers } from "./schedule";
 import { numberSetting } from "./settings";
 
 /**
@@ -28,11 +29,8 @@ export async function attendanceContext(employeeId: string, now = new Date()) {
       orderBy: { clockInAt: "desc" },
     }),
   ]);
-  const holidays = await db.holiday.findMany({
-    where: { date: { in: [new Date(today), new Date(addDays(today, -1))] }, OR: [{ branchId: null }, { branchId: employee.branchId }] },
-    select: { date: true },
-  });
-  const resolved = resolveWorkDate(now, employee.defaultShift, employee.workDays, new Set(holidays.map((h) => h.date.toISOString().slice(0, 10))));
+  const shiftOn = (await loadShiftResolvers([{ id: employeeId, ...employee }], addDays(today, -1), today)).get(employeeId)!;
+  const resolved = resolveWorkDate(now, shiftOn);
   const action = decideAction(
     now,
     recent?.clockInAt ? { workDate: recent.workDate.toISOString().slice(0, 10), clockInAt: recent.clockInAt, clockOutAt: recent.clockOutAt } : null,
@@ -40,5 +38,5 @@ export async function attendanceContext(employeeId: string, now = new Date()) {
   );
   // Absensi yang ditampilkan: yang sedang berjalan/hari ini; record lama yang sudah selesai tidak ditampilkan lagi.
   const current = action === "IN" ? null : recent;
-  return { employee, recent, current, resolved, action, nextAction: action === "IN" ? ("IN" as const) : ("OUT" as const) };
+  return { employee, recent, current, resolved, action, todayShift: shiftOn(today), nextAction: action === "IN" ? ("IN" as const) : ("OUT" as const) };
 }

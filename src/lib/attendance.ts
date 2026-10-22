@@ -32,20 +32,38 @@ export function scheduleFor(date: string, s: ShiftTimes) {
   return { start, end };
 }
 
+export type ShiftOnDate = (date: string) => (ShiftTimes & { id: string; lateToleranceMin: number }) | null;
+
+/**
+ * Shift yang berlaku pada tanggal WIB `date` (§5.1): jadwal per tanggal menang (shift null = libur);
+ * tanpa jadwal per tanggal → hari libur = libur, selain itu shift default bila hari kerja.
+ */
+export function shiftResolver<S extends ShiftTimes & { id: string; lateToleranceMin: number }>(opts: {
+  defaultShift: S | null;
+  workDays: number[];
+  holidays: Set<string>;
+  overrides: Map<string, S | null>;
+}): (date: string) => S | null {
+  return (date) => {
+    if (opts.overrides.has(date)) return opts.overrides.get(date) ?? null;
+    if (opts.holidays.has(date) || !opts.workDays.includes(isoWeekday(date))) return null;
+    return opts.defaultShift;
+  };
+}
+
 /**
  * Tanggal kerja untuk clock-in pada `now`: jadwal hari ini atau kemarin (shift malam) yang jendelanya
  * [mulai − clockInWindow, selesai] memuat `now`. Tanpa jadwal yang cocok → tanggal WIB hari ini, tanpa jadwal.
  */
-export function resolveWorkDate(now: Date, shift: ShiftTimes | null, workDays: number[], holidays: Set<string>) {
+export function resolveWorkDate(now: Date, shiftOn: ShiftOnDate) {
   const today = wibDate(now);
-  if (shift) {
-    for (const date of [today, addDays(today, -1)]) {
-      if (!workDays.includes(isoWeekday(date)) || holidays.has(date)) continue;
-      const s = scheduleFor(date, shift);
-      if (now.getTime() >= s.start.getTime() - shift.clockInWindowMin * MIN && now <= s.end) return { workDate: date, schedule: s };
-    }
+  for (const date of [today, addDays(today, -1)]) {
+    const shift = shiftOn(date);
+    if (!shift) continue;
+    const s = scheduleFor(date, shift);
+    if (now.getTime() >= s.start.getTime() - shift.clockInWindowMin * MIN && now <= s.end) return { workDate: date, schedule: s, shift };
   }
-  return { workDate: today, schedule: null };
+  return { workDate: today, schedule: null, shift: null };
 }
 
 /** Terlambat (menit) dihitung dari jam mulai, hanya bila melewati toleransi. */
@@ -118,4 +136,54 @@ export function decideAction(
   if (!recent) return "IN";
   if (!recent.clockOutAt) return now.getTime() - recent.clockInAt.getTime() < MIN_SHIFT_MS ? "TOO_SOON" : "OUT";
   return recent.workDate === resolvedWorkDate ? "OUT" : "IN";
+}
+
+/** Jam absen hasil gabungan + hitungan terlambat/pulang awal/durasi untuk satu tanggal kerja. */
+export function computeRecord(clockIn: Date | null, clockOut: Date | null, schedule: { start: Date; end: Date } | null, lateToleranceMin: number) {
+  return {
+    lateMinutes: clockIn && schedule ? lateMinutes(clockIn, schedule.start, lateToleranceMin) : 0,
+    earlyLeaveMinutes: clockOut && schedule ? earlyLeaveMinutes(clockOut, schedule.end) : 0,
+    workMinutes: clockIn && clockOut ? minutesBetween(clockIn, clockOut) : 0,
+  };
+}
+
+/** Jam koreksi "HH:MM" (WIB) pada tanggal kerja; jam pulang lebih awal dari jam masuk = keesokan hari (shift malam). */
+export function correctionTimes(workDate: string, clockIn: string | null, clockOut: string | null) {
+  const at = (date: string, t: string) => new Date(`${date}T${t}:00+07:00`);
+  const inAt = clockIn ? at(workDate, clockIn) : null;
+  let outAt = clockOut ? at(workDate, clockOut) : null;
+  if (inAt && outAt && outAt <= inAt) outAt = at(addDays(workDate, 1), clockOut!);
+  return { inAt, outAt };
+}
+
+export type DayStatus = "LIBUR" | "HADIR" | "TERLAMBAT" | "BELUM_CLOCK_OUT" | "TIDAK_HADIR" | "BELUM_ABSEN";
+
+export const DAY_STATUS: Record<DayStatus, string> = {
+  LIBUR: "Libur",
+  HADIR: "Hadir",
+  TERLAMBAT: "Terlambat",
+  BELUM_CLOCK_OUT: "Belum clock-out",
+  TIDAK_HADIR: "Tidak hadir",
+  BELUM_ABSEN: "Belum absen",
+};
+
+/**
+ * Status satu karyawan pada satu tanggal kerja (§5.6). Dihitung saat dibaca, tidak disimpan.
+ * "Tidak hadir" hanya bila terjadwal kerja, jadwalnya sudah selesai, dan tidak ada absen.
+ * shortcut: cuti/izin/sakit belum ada (M5); setelah M5 cuti disetujui dicek sebelum "Tidak hadir".
+ */
+export function dayStatus(
+  now: Date,
+  workDate: string,
+  schedule: { start: Date; end: Date } | null,
+  record: { clockInAt: Date | null; clockOutAt: Date | null; lateMinutes: number } | null,
+): DayStatus {
+  if (record?.clockInAt) {
+    // Tanpa jadwal: "belum clock-out" baru setelah tanggal kerjanya lewat.
+    const end = schedule?.end ?? new Date(`${addDays(workDate, 1)}T00:00:00+07:00`);
+    if (!record.clockOutAt && now > end) return "BELUM_CLOCK_OUT";
+    return record.lateMinutes > 0 ? "TERLAMBAT" : "HADIR";
+  }
+  if (!schedule) return "LIBUR";
+  return now > schedule.end ? "TIDAK_HADIR" : "BELUM_ABSEN";
 }

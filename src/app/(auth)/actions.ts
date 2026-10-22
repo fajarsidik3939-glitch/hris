@@ -65,11 +65,9 @@ export async function changePassword(_: FormState, formData: FormData): Promise<
   }
 
   const session = await getSessionFromCookie();
+  const passwordHash = await hashPassword(parsed.data.newPassword);
   await db.$transaction(async (tx) => {
-    await tx.user.update({
-      where: { id: user.id },
-      data: { passwordHash: await hashPassword(parsed.data.newPassword), mustChangePassword: false },
-    });
+    await tx.user.update({ where: { id: user.id }, data: { passwordHash, mustChangePassword: false } });
     // Keluarkan sesi di perangkat lain; sesi ini tetap aktif.
     await tx.session.deleteMany({ where: { userId: user.id, NOT: { id: session?.id } } });
     await writeAudit({ actorUserId: user.id, action: "auth.change_password", entityType: "user", entityId: user.id }, tx);

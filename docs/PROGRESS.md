@@ -74,7 +74,23 @@ Sudah dibuat (2026-10-22):
 Hasil cek:
 - `npm test`: 10/10 lulus (hash password, merge permission, matrix, validator).
 - `npm run typecheck`, `npm run lint`, `npm run build`: lulus.
-- BELUM: migrasi & seed ke Supabase, uji login end-to-end, push GitHub, deploy Vercel (menunggu `.env` diisi user).
+- Git: remote `origin` = github.com/fajarsidik3939-glitch/hris. Push pertama harus dijalankan user (butuh login GitHub interaktif) — BELUM berhasil per 2026-10-22.
+- Supabase dev (`snbvslgcszifcstwpidh`, host `aws-0-ap-southeast-1.pooler`): migrasi 001 + seed sudah diterapkan. Catatan: karakter `#` di password DB harus ditulis `%23` di URL.
+- Cek database: 6 role, 21 permission, 69 role_permissions, 7 settings; UPDATE/DELETE/TRUNCATE `audit_logs` ditolak; semua tabel ber-RLS.
+- Akun uji DEV: `uji-admin` (Super Admin), `uji-karyawan` (Employee, sekarang nonaktif), `uji-supervisor`; password di `.env.test-accounts` (di-ignore Git). Skrip: `scripts/create-test-accounts.ts`.
+
+Hasil uji end-to-end (browser, localhost):
+| Acceptance M1 | Hasil |
+|---|---|
+| 1. Login benar → Beranda; salah → pesan generik | LULUS |
+| 2. 5x gagal / 15 menit → diblokir | LULUS (percobaan ke-6 diblokir) |
+| 3. Akun nonaktif tidak bisa login, sesi terhapus | LULUS |
+| 4. Password tersimpan hash scrypt | LULUS (cek DB) |
+| 5. Halaman tanpa izin → 403 | LULUS (HTTP 403; tanpa login → 307 ke /login) |
+| 6. Audit login/logout/akun; UPDATE/DELETE audit ditolak DB | LULUS; tidak ada password/hash/token di audit |
+| 7. Bisa dibuka di HP via HTTPS Vercel | BELUM (menunggu push GitHub + import Vercel) |
+- Wajib ganti password sementara, validasi konfirmasi password, tampilan 375 px tanpa scroll horizontal: LULUS.
+- Kinerja (production lokal → Supabase Singapore): login ±0,7 detik; request pertama setelah server start ±9 detik (cold start).
 
 ## Langkah berikutnya
-User mengisi `.env` (DATABASE_URL, DIRECT_URL, SEED_ADMIN_PASSWORD) → migrasi + seed → uji login → push → deploy Vercel. Setelah Phase 1 di-APPROVE, lanjut ke Phase 2 (Mind Map & Scope).
+User push ke GitHub → import repo di Vercel + isi environment variables → saya verifikasi deploy & uji di HP → laporan approval Phase 7. Setelah Phase 1 di-APPROVE, lanjut ke Phase 2 (Mind Map & Scope).

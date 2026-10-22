@@ -32,6 +32,8 @@ export async function createUser(_: UserActionState, formData: FormData): Promis
   if (clash) return { errors: { loginId: ["ID login atau email sudah dipakai."] } };
 
   const tempPassword = generateTempPassword();
+  // Hash di luar transaksi agar transaksi tidak tertahan selama proses scrypt.
+  const passwordHash = await hashPassword(tempPassword);
   const roleRows = await db.role.findMany({ where: { code: { in: roles } }, select: { id: true } });
   await db.$transaction(async (tx) => {
     const user = await tx.user.create({
@@ -39,7 +41,7 @@ export async function createUser(_: UserActionState, formData: FormData): Promis
         loginId,
         displayName,
         email,
-        passwordHash: await hashPassword(tempPassword),
+        passwordHash,
         mustChangePassword: true,
         roles: { create: roleRows.map((r) => ({ roleId: r.id })) },
       },
@@ -78,10 +80,11 @@ export async function resetPassword(userId: string): Promise<UserActionState> {
   if (userId === actor.id) return { message: "Untuk akun sendiri, gunakan menu Ganti password." };
 
   const tempPassword = generateTempPassword();
+  const passwordHash = await hashPassword(tempPassword);
   await db.$transaction(async (tx) => {
     await tx.user.update({
       where: { id: userId },
-      data: { passwordHash: await hashPassword(tempPassword), mustChangePassword: true },
+      data: { passwordHash, mustChangePassword: true },
     });
     await tx.session.deleteMany({ where: { userId } });
     await writeAudit({ actorUserId: actor.id, action: "user.reset_password", entityType: "user", entityId: userId }, tx);

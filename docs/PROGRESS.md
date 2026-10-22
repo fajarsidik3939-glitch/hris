@@ -9,7 +9,7 @@
 | 4 | System Architecture & Technology Selection | APPROVED (2026-10-22) |
 | 5 | Database Design, ERD & Business Rules | APPROVED (2026-10-22) |
 | 6 | Development Roadmap & Acceptance Criteria | APPROVED (2026-10-22) |
-| 7 | Implementation Foundation & Authentication | IN PROGRESS (M0 prasyarat) |
+| 7 | Implementation Foundation & Authentication | READY FOR REVIEW (menunggu uji login dari HP) |
 | 8 | Employee Management & Organization | NOT STARTED |
 | 9 | Selfie GPS Attendance | NOT STARTED |
 | 10 | Attendance Management, Shift & Scheduling | NOT STARTED |
@@ -88,9 +88,11 @@ Hasil uji end-to-end (browser, localhost):
 | 4. Password tersimpan hash scrypt | LULUS (cek DB) |
 | 5. Halaman tanpa izin → 403 | LULUS (HTTP 403; tanpa login → 307 ke /login) |
 | 6. Audit login/logout/akun; UPDATE/DELETE audit ditolak DB | LULUS; tidak ada password/hash/token di audit |
-| 7. Bisa dibuka di HP via HTTPS Vercel | BELUM (menunggu push GitHub + import Vercel) |
+| 7. Bisa dibuka di HP via HTTPS Vercel | Online di https://hris-2ohe.vercel.app (region sin1, header keamanan aktif, /admin tanpa login → 307 /login). Uji login dari HP oleh user: MENUNGGU |
 - Wajib ganti password sementara, validasi konfirmasi password, tampilan 375 px tanpa scroll horizontal: LULUS.
 - Kinerja (production lokal → Supabase Singapore): login ±0,7 detik; request pertama setelah server start ±9 detik (cold start).
 
+- Deploy: GitHub `main` → Vercel otomatis. `vercel.json` mengunci framework Next.js + region `sin1` (deploy pertama 404 karena preset terdeteksi salah).
+
 ## Langkah berikutnya
-User push ke GitHub → import repo di Vercel + isi environment variables → saya verifikasi deploy & uji di HP → laporan approval Phase 7. Setelah Phase 1 di-APPROVE, lanjut ke Phase 2 (Mind Map & Scope).
+User mencoba login `admin` dari HP di URL Vercel → approval Phase 7. Setelah APPROVE: Phase 8 / M2 (Organisasi & Karyawan). Setelah Phase 1 di-APPROVE, lanjut ke Phase 2 (Mind Map & Scope).

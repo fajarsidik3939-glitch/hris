@@ -11,7 +11,7 @@
 | 6 | Development Roadmap & Acceptance Criteria | APPROVED (2026-10-22) |
 | 7 | Implementation Foundation & Authentication | APPROVED (2026-10-23, login dari HP berhasil) |
 | 8 | Employee Management & Organization | APPROVED (2026-10-23) |
-| 9 | Selfie GPS Attendance | IN PROGRESS |
+| 9 | Selfie GPS Attendance | IN PROGRESS (kode selesai; menunggu kunci Storage + uji HP) |
 | 10 | Attendance Management, Shift & Scheduling | NOT STARTED |
 | 11 | Leave, Permission & Approval Workflow | NOT STARTED |
 | 12 | Impor Fingerprint (slot semula Overtime; lembur pindah ke Phase 15) | NOT STARTED |
@@ -108,5 +108,26 @@ Hasil cek:
 - Bug ditemukan & diperbaiki saat uji: (1) form login sebelum JS siap terkirim GET → password di URL (dev, akun uji) — login kembali pakai `action`, form lain `method="post"`; (2) password sementara akun karyawan hilang dari layar setelah refresh; (3) peta tidak pindah ke titik lokasi saat dibuka; (4) duplikat NIK + fingerprint hanya 1 error.
 - Kinerja: membuka koneksi baru ke pooler Supabase kadang 9–16 detik dari laptop ini (TCP ±50 ms, query ±50 ms) → koneksi idle dipertahankan 5 menit. Halaman normal 0,4–0,6 detik; request pertama setelah server start tetap lambat.
 
+
+## Phase 9 / M3 — selfie GPS (IN PROGRESS, 2026-10-23)
+Dibuat:
+- Migrasi `20261023000003_shift_attendance`: shifts (menit sejak 00:00 WIB), employees.default_shift_id, attendance_records (unik per karyawan × tanggal kerja), attendance_events + trigger: tidak bisa diubah/dihapus kecuali mengosongkan photo_path (retensi). RLS aktif.
+- `src/lib/attendance.ts`: tanggal kerja (shift malam ikut tanggal mulai), terlambat (toleransi), pulang awal, haversine, label lokasi, keputusan masuk/pulang (`decideAction`).
+- API `POST /api/attendance`: cek Origin (CSRF), sesi, izin, karyawan aktif & metode absen; foto JPEG ≤ 1 MB; jam server; idempotency; upload ke bucket privat `attendance-photos` (Supabase Storage REST) lalu transaksi record + event + audit; foto dihapus bila transaksi gagal.
+- `GET /api/attendance/photo/[eventId]`: cek izin + scope → redirect signed URL 5 menit.
+- Halaman: `/absen` (kamera depan tanpa galeri, status kamera/lokasi, preview, ulangi, kirim, layar hasil, panduan izin Android/iPhone, batas tunggu GPS 15 detik), Beranda (shift, tombol CLOCK IN/OUT, masuk/pulang/durasi), `/riwayat` (31 hari, link foto). Tab Shift di Organisasi; shift default di form karyawan.
+- Shift contoh di data dev: Kantor 08–17, Pagi 07–15, Siang 15–23, Malam 23–07.
+- Ditunda (ponytail): jadwal rotasi per tanggal (`employee_schedules`) → M4; tabel impor fingerprint → M6.
+
+Hasil cek (localhost, akun uji-karyawan, foto JPEG uji dari canvas karena kamera diblokir di browser aplikasi):
+- `npm test` 39/39 (+ shift malam, toleransi, label, masuk/pulang termasuk shift siang→pagi). typecheck, lint, build lulus.
+- Clock-in 33 m dari lokasi → Dalam radius, tanggal kerja benar; kirim ulang kunci sama → hasil sama tanpa data dobel; tap lagi < 30 menit → 409; bukan JPEG → 400; tanpa Origin/Origin asing → 403; tanpa login → 401.
+- Clock-out 4,4 km → Luar radius (tetap diterima); clock-out ulang tanpa GPS → Akurasi rendah; Beranda menampilkan durasi.
+- Foto tampil lewat signed URL; akses langsung ke storage tanpa izin → 400 (privat).
+- Trigger: ubah jam / ganti foto / hapus event ditolak; kosongkan foto diizinkan.
+- Review (ponytail-review) menemukan 8 hal; semua diperbaiki: shift berurutan dianggap pulang, kamera bisa hitam, GPS tunggu tanpa batas, logika masuk/pulang tanpa test, trigger belum diuji, Origin "null", kirim ulang tumpang tindih, join tak terpakai.
+- Data uji absensi uji-karyawan 23 Okt tersimpan permanen di DB dev (event tidak bisa dihapus — sesuai desain).
+- BELUM: uji kamera di HP Android & iPhone sungguhan (acceptance 1–3).
+
 ## Langkah berikutnya
-Approval Phase 8. Setelah APPROVE: Phase 9 / M3 (Selfie GPS Attendance + master shift) — butuh 1 HP Android + 1 iPhone untuk uji, dan jam shift yang berlaku. Setelah Phase 1 di-APPROVE, lanjut ke Phase 2 (Mind Map & Scope).
+User mencoba absen dari HP Android + iPhone di https://hris-2ohe.vercel.app → laporan approval Phase 9.

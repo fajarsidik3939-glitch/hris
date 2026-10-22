@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import * as z from "zod";
 import { Prisma } from "@/generated/prisma/client";
-import { earlyLeaveMinutes, isJpeg, lateMinutes, locationLabel, minutesBetween, resolveWorkDate, wibDate, addDays } from "@/lib/attendance";
+import { earlyLeaveMinutes, isJpeg, lateMinutes, locationLabel, minutesBetween, wibDate } from "@/lib/attendance";
+import { attendanceContext } from "@/server/attendance-status";
 import { db } from "@/server/db";
 import { requestMeta, writeAudit } from "@/server/audit";
 import { getCurrentUser } from "@/server/auth";
@@ -9,7 +10,7 @@ import { numberSetting } from "@/server/settings";
 import { removePhoto, uploadPhoto } from "@/server/storage";
 
 const MAX_PHOTO_BYTES = 1024 * 1024;
-const MIN_SHIFT_MS = 30 * 60 * 1000; // tap kedua < 30 menit setelah clock-in = dobel
+const hhmm = (d: Date) => d.toLocaleTimeString("id-ID", { timeZone: "Asia/Jakarta", hour: "2-digit", minute: "2-digit" });
 
 const optionalNumber = (min: number, max: number) =>
   z.preprocess((v) => (v === "" || v === null || v === undefined ? null : v), z.coerce.number().min(min).max(max).nullable());
@@ -42,7 +43,7 @@ function result(e: { type: string; occurredAt: Date; locationLabel: string | nul
 export async function POST(req: Request) {
   // Route handler tidak punya cek Origin bawaan seperti Server Action → cegah CSRF di sini.
   const origin = req.headers.get("origin");
-  if (!origin || new URL(origin).host !== req.headers.get("host")) return fail(403, "Permintaan ditolak.");
+  if (!origin || !URL.canParse(origin) || new URL(origin).host !== req.headers.get("host")) return fail(403, "Permintaan ditolak.");
 
   const user = await getCurrentUser();
   if (!user) return fail(401, "Sesi berakhir. Silakan login lagi.");
@@ -69,17 +70,18 @@ export async function POST(req: Request) {
   const replay = await db.attendanceEvent.findUnique({ where: { idempotencyKey }, include: { record: true, workLocation: { select: { name: true } } } });
   if (replay) return replay.employeeId === employeeId ? Response.json(result(replay, replay.record)) : fail(409, "Permintaan ganda.");
 
-  const employee = await db.employee.findUniqueOrThrow({
-    where: { id: employeeId },
-    select: { status: true, workType: true, attendanceMethod: true, branchId: true, workDays: true, defaultShift: true },
-  });
+  const now = new Date();
+  const ctx = await attendanceContext(employeeId, now);
+  const { employee, recent, resolved, action } = ctx;
   if (employee.status !== "ACTIVE") return fail(403, "Data karyawan Anda nonaktif.");
   if (employee.attendanceMethod === "FINGERPRINT") return fail(403, "Metode absen Anda fingerprint. Silakan absen di mesin.");
+  if (action === "TOO_SOON") {
+    return fail(409, `Anda sudah clock-in pukul ${hhmm(recent!.clockInAt!)}. Clock-out bisa dilakukan minimal 30 menit setelahnya.`);
+  }
+  const type = action;
 
-  const now = new Date();
-  const [threshold, maxShiftHours, locations] = await Promise.all([
+  const [threshold, locations] = await Promise.all([
     numberSetting("gps.accuracy_threshold_m", 100),
-    numberSetting("attendance.max_shift_hours", 20),
     db.workLocation.findMany({ where: { branchId: employee.branchId, isActive: true }, select: { id: true, name: true, latitude: true, longitude: true, radiusM: true } }),
   ]);
   const loc = locationLabel({
@@ -90,27 +92,6 @@ export async function POST(req: Request) {
     accuracyThresholdM: threshold,
     locations: locations.map((l) => ({ ...l, latitude: Number(l.latitude), longitude: Number(l.longitude) })),
   });
-
-  // Record terbuka/terbaru dalam batas durasi shift → tap ini adalah clock-out.
-  const recent = await db.attendanceRecord.findFirst({
-    where: { employeeId, clockInAt: { gte: new Date(now.getTime() - maxShiftHours * 3600_000) } },
-    orderBy: { clockInAt: "desc" },
-    include: { shift: true },
-  });
-  if (recent?.clockInAt && !recent.clockOutAt && now.getTime() - recent.clockInAt.getTime() < MIN_SHIFT_MS) {
-    return fail(409, `Anda sudah clock-in pukul ${recent.clockInAt.toLocaleTimeString("id-ID", { timeZone: "Asia/Jakarta", hour: "2-digit", minute: "2-digit" })}. Clock-out bisa dilakukan minimal 30 menit setelahnya.`);
-  }
-  const type: "IN" | "OUT" = recent ? "OUT" : "IN";
-
-  let resolved: ReturnType<typeof resolveWorkDate> | null = null;
-  if (type === "IN") {
-    const today = wibDate(now);
-    const holidays = await db.holiday.findMany({
-      where: { date: { in: [new Date(today), new Date(addDays(today, -1))] }, OR: [{ branchId: null }, { branchId: employee.branchId }] },
-      select: { date: true },
-    });
-    resolved = resolveWorkDate(now, employee.defaultShift, employee.workDays, new Set(holidays.map((h) => h.date.toISOString().slice(0, 10))));
-  }
 
   const photoPath = `${employeeId}/${wibDate(now).slice(0, 7)}/${randomUUID()}.jpg`;
   try {
@@ -135,7 +116,7 @@ export async function POST(req: Request) {
           },
         });
       } else {
-        const { workDate, schedule } = resolved!;
+        const { workDate, schedule } = resolved;
         const existing = await tx.attendanceRecord.findUnique({ where: { employeeId_workDate: { employeeId, workDate: new Date(workDate) } } });
         if (existing?.clockInAt) throw new DuplicateError(existing.clockInAt);
         const data = {
@@ -185,8 +166,13 @@ export async function POST(req: Request) {
     return Response.json(saved);
   } catch (e) {
     await removePhoto(photoPath);
-    if (e instanceof DuplicateError) return fail(409, `Anda sudah clock-in hari ini pukul ${e.at.toLocaleTimeString("id-ID", { timeZone: "Asia/Jakarta", hour: "2-digit", minute: "2-digit" })}.`);
-    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return fail(409, "Absensi ini sudah tercatat.");
+    if (e instanceof DuplicateError) return fail(409, `Anda sudah clock-in hari ini pukul ${hhmm(e.at)}.`);
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      // Kiriman pertama dengan kunci yang sama baru saja selesai → kembalikan hasilnya, bukan error.
+      const first = await db.attendanceEvent.findUnique({ where: { idempotencyKey }, include: { record: true, workLocation: { select: { name: true } } } });
+      if (first?.employeeId === employeeId) return Response.json(result(first, first.record));
+      return fail(409, "Absensi ini sudah tercatat.");
+    }
     throw e;
   }
 }

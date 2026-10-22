@@ -31,6 +31,10 @@ export function ClockFlow({ action, clockInAt, clockOutAt }: { action: "IN" | "O
     stream.current = null;
   };
   useEffect(() => stopCamera, []);
+  // Pasang stream setelah <video> benar-benar ada di layar (juga saat "Ulangi").
+  useEffect(() => {
+    if (step === "camera" && video.current) video.current.srcObject = stream.current;
+  }, [step]);
 
   async function openCamera() {
     setError(null);
@@ -42,14 +46,13 @@ export function ClockFlow({ action, clockInAt, clockOutAt }: { action: "IN" | "O
       return setProblem(e instanceof DOMException && e.name === "NotAllowedError" ? "camera-denied" : "no-camera");
     }
     setStep("camera");
-    requestAnimationFrame(() => {
-      if (video.current) video.current.srcObject = stream.current;
-    });
   }
 
   function start() {
     // Lokasi diminta bersamaan dengan kamera; batas tunggu 15 detik (setelah itu tetap bisa kirim).
     setGeo({ status: "waiting" });
+    // Batas 15 detik juga berlaku bila pop-up izin lokasi tidak dijawab (timeout bawaan baru jalan setelah izin).
+    setTimeout(() => setGeo((g) => (g.status === "waiting" ? { status: "unavailable" } : g)), 15000);
     navigator.geolocation?.getCurrentPosition(
       (p) => setGeo({ status: "ok", latitude: p.coords.latitude, longitude: p.coords.longitude, accuracy: p.coords.accuracy }),
       (e) => setGeo({ status: e.code === e.PERMISSION_DENIED ? "denied" : "unavailable" }),

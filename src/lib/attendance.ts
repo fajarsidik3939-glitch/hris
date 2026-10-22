@@ -103,3 +103,19 @@ export const LABELS: Record<string, string> = {
 
 /** true bila isi file diawali tanda JPEG (FF D8 FF). */
 export const isJpeg = (bytes: Uint8Array) => bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+
+const MIN_SHIFT_MS = 30 * MIN; // tap kedua < 30 menit setelah clock-in dianggap dobel
+
+/**
+ * Tap berikutnya = masuk atau pulang. `recent` = absensi terakhir dalam batas durasi shift.
+ * Pulang hanya bila absensi masih terbuka, atau sudah pulang tapi tanggal kerjanya sama (clock-out ulang).
+ */
+export function decideAction(
+  now: Date,
+  recent: { workDate: string; clockInAt: Date; clockOutAt: Date | null } | null,
+  resolvedWorkDate: string,
+): "IN" | "OUT" | "TOO_SOON" {
+  if (!recent) return "IN";
+  if (!recent.clockOutAt) return now.getTime() - recent.clockInAt.getTime() < MIN_SHIFT_MS ? "TOO_SOON" : "OUT";
+  return recent.workDate === resolvedWorkDate ? "OUT" : "IN";
+}

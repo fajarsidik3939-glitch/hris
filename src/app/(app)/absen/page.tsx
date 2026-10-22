@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { formatDateLong } from "@/lib/format";
 import { requirePermission } from "@/server/auth";
-import { currentAttendance } from "@/server/attendance-status";
+import { attendanceContext } from "@/server/attendance-status";
 import { ClockFlow } from "./clock-flow";
 
 export const metadata = { title: "Absen — HRIS" };
@@ -11,7 +11,7 @@ export default async function AbsenPage() {
   if (!user.employee) {
     return <Notice text="Akun Anda belum terhubung ke data karyawan. Hubungi HR agar akun dihubungkan." />;
   }
-  const { employee, recent, nextAction } = await currentAttendance(user.employee.id);
+  const { employee, current: recent, nextAction } = await attendanceContext(user.employee.id);
   if (employee?.attendanceMethod === "FINGERPRINT") {
     return <Notice text="Metode absen Anda adalah fingerprint. Silakan absen di mesin fingerprint." />;
   }

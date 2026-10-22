@@ -41,3 +41,7 @@ Hanya keputusan yang sudah disetujui user (APPROVE) dicatat di sini.
 | 2026-10-23 | M2 | Form panjang memakai submit tanpa reset (isian tidak hilang saat error) + `method="post"`; form login/password tetap `action` bawaan. | Mencegah isian hilang; mencegah password masuk URL bila JS belum siap. |
 | 2026-10-23 | M2 | Koneksi DB idle dipertahankan 5 menit. | Membuka koneksi baru ke pooler Supabase gratis kadang 9–16 detik. |
 | 2026-10-23 | M2 | Tabel di HP bisa digeser horizontal (belum diubah jadi kartu). | Cukup untuk halaman HR; kartu untuk halaman karyawan dibuat di M3/M4. |
+| 2026-10-23 | M3 | Jam shift disimpan sebagai menit sejak 00:00 WIB (bukan tipe time). | Hitungan shift malam lebih sederhana; semua cabang WIB. |
+| 2026-10-23 | M3 | Jadwal rotasi per tanggal ditunda ke M4; M3 memakai shift default + hari kerja per karyawan. | Cukup untuk clock-in; rotasi dibuat saat dipakai. |
+| 2026-10-23 | M3 | Foto ke Supabase Storage lewat REST (tanpa SDK); bucket `attendance-photos` privat, JPEG ≤ 1 MB. | Tanpa dependency tambahan. |
+| 2026-10-23 | M3 | Tap berikutnya = pulang hanya bila absensi masih terbuka atau tanggal kerjanya sama (clock-out ulang); selain itu masuk. Lupa clock-in diselesaikan lewat koreksi (M4). | Mencegah shift berurutan tercatat sebagai pulang. |

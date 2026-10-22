@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { minuteToTime } from "@/lib/attendance";
 import { formatDateLong } from "@/lib/format";
 import { requireUser } from "@/server/auth";
-import { currentAttendance } from "@/server/attendance-status";
+import { attendanceContext } from "@/server/attendance-status";
 
 export const metadata = { title: "Beranda — HRIS" };
 
@@ -13,9 +13,9 @@ const time = (d: Date | null | undefined) => (d ? d.toLocaleTimeString("id-ID", 
 export default async function BerandaPage() {
   const user = await requireUser();
   const canClock = user.permissions.has("attendance.clock") && user.employee;
-  const status = canClock ? await currentAttendance(user.employee!.id) : null;
+  const status = canClock ? await attendanceContext(user.employee!.id) : null;
   const selfie = status && status.employee?.attendanceMethod !== "FINGERPRINT";
-  const r = status?.recent;
+  const r = status?.current;
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
@@ -39,7 +39,7 @@ export default async function BerandaPage() {
                 className="flex h-24 w-full flex-col items-center justify-center rounded-2xl bg-primary text-2xl font-extrabold text-primary-foreground shadow-lg"
               >
                 {status.nextAction === "IN" ? "CLOCK IN" : "CLOCK OUT"}
-                <span className="text-xs font-medium opacity-90">{r ? "Sudah clock-in" : "Belum absen"}</span>
+                <span className="text-xs font-medium opacity-90">{r ? (r.clockOutAt ? "Sudah pulang · tap untuk perbarui jam pulang" : "Sudah clock-in") : "Belum absen"}</span>
               </Link>
             ) : (
               <p className="rounded-md bg-slate-50 p-3 text-sm">Metode absen Anda fingerprint. Silakan absen di mesin.</p>

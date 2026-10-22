@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  decideAction,
   earlyLeaveMinutes,
   haversineM,
   isJpeg,
@@ -99,4 +100,22 @@ describe("label lokasi", () => {
 it("deteksi JPEG dari isi file", () => {
   expect(isJpeg(new Uint8Array([0xff, 0xd8, 0xff, 0xe0]))).toBe(true);
   expect(isJpeg(new Uint8Array([0x89, 0x50, 0x4e, 0x47]))).toBe(false);
+});
+
+describe("masuk atau pulang", () => {
+  const rec = (workDate: string, inAt: string, outAt: string | null) => ({ workDate, clockInAt: wib(inAt), clockOutAt: outAt ? wib(outAt) : null });
+
+  it("tanpa absensi terakhir → masuk", () => {
+    expect(decideAction(wib("2026-10-22T07:55:00"), null, "2026-10-22")).toBe("IN");
+  });
+  it("absensi terbuka → pulang; < 30 menit → dobel", () => {
+    expect(decideAction(wib("2026-10-22T17:00:00"), rec("2026-10-22", "2026-10-22T08:00:00", null), "2026-10-22")).toBe("OUT");
+    expect(decideAction(wib("2026-10-22T08:10:00"), rec("2026-10-22", "2026-10-22T08:00:00", null), "2026-10-22")).toBe("TOO_SOON");
+  });
+  it("shift siang selesai, besok pagi masuk lagi → masuk (bukan pulang kemarin)", () => {
+    expect(decideAction(wib("2026-10-23T06:50:00"), rec("2026-10-22", "2026-10-22T15:00:00", "2026-10-22T23:00:00"), "2026-10-23")).toBe("IN");
+  });
+  it("sudah pulang, tap lagi di tanggal kerja yang sama → clock-out ulang", () => {
+    expect(decideAction(wib("2026-10-22T17:30:00"), rec("2026-10-22", "2026-10-22T08:00:00", "2026-10-22T17:00:00"), "2026-10-22")).toBe("OUT");
+  });
 });

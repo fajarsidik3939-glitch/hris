@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { db } from "@/server/db";
 import { requirePermission } from "@/server/auth";
 import * as actions from "./actions";
+import { AnnualLeaveButton } from "./annual-leave-button";
 import { CompanyForm } from "./company-form";
 
 export const metadata = { title: "Organisasi — HRIS" };
@@ -17,6 +18,7 @@ const TABS = {
   jabatan: "Jabatan",
   lokasi: "Lokasi Kerja",
   shift: "Shift",
+  cuti: "Jenis Cuti",
   "hari-libur": "Hari Libur",
 } as const;
 type Tab = keyof typeof TABS;
@@ -175,6 +177,50 @@ async function TabContent({ tab }: { tab: Tab }) {
           save={actions.saveShift}
           toggle={actions.toggleShift}
         />
+      );
+    }
+    case "cuti": {
+      const rows = await db.leaveType.findMany({ orderBy: { name: "asc" } });
+      const yesNo = [
+        { value: "ya", label: "Ya" },
+        { value: "tidak", label: "Tidak" },
+      ];
+      const yn = (b: boolean) => (b ? "ya" : "tidak");
+      return (
+        <div className="space-y-6">
+          <AnnualLeaveButton />
+          <EntityManager
+            title="Jenis Cuti & Izin"
+            fields={[
+              { name: "code", label: "Kode", required: true },
+              { name: "name", label: "Nama", required: true },
+              { name: "deductsBalance", label: "Memotong saldo cuti tahunan?", type: "select", options: yesNo, required: true },
+              { name: "requiresAttachment", label: "Wajib lampiran?", type: "select", options: yesNo, required: true },
+              { name: "allowHalfDay", label: "Boleh setengah hari?", type: "select", options: yesNo, required: true },
+              { name: "maxDaysPerRequest", label: "Maks. hari per pengajuan (kosong = bebas)", type: "number" },
+            ]}
+            columns={["Kode", "Nama", "Aturan"]}
+            rows={rows.map((t) => ({
+              id: t.id,
+              isActive: t.isActive,
+              values: {
+                code: t.code,
+                name: t.name,
+                deductsBalance: yn(t.deductsBalance),
+                requiresAttachment: yn(t.requiresAttachment),
+                allowHalfDay: yn(t.allowHalfDay),
+                maxDaysPerRequest: t.maxDaysPerRequest ? String(t.maxDaysPerRequest) : "",
+              },
+              cells: [
+                t.code,
+                t.name,
+                [t.deductsBalance && "potong saldo", t.requiresAttachment && "wajib lampiran", t.allowHalfDay && "½ hari", t.maxDaysPerRequest && `maks. ${t.maxDaysPerRequest} hari`].filter(Boolean).join(" · ") || "—",
+              ],
+            }))}
+            save={actions.saveLeaveType}
+            toggle={actions.toggleLeaveType}
+          />
+        </div>
       );
     }
     case "hari-libur": {

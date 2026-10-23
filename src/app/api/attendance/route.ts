@@ -7,7 +7,7 @@ import { db } from "@/server/db";
 import { requestMeta, writeAudit } from "@/server/audit";
 import { getCurrentUser } from "@/server/auth";
 import { numberSetting } from "@/server/settings";
-import { removePhoto, uploadPhoto } from "@/server/storage";
+import { PHOTO_BUCKET, removeObject, uploadObject } from "@/server/storage";
 
 const MAX_PHOTO_BYTES = 1024 * 1024;
 const hhmm = (d: Date) => d.toLocaleTimeString("id-ID", { timeZone: "Asia/Jakarta", hour: "2-digit", minute: "2-digit" });
@@ -95,7 +95,7 @@ export async function POST(req: Request) {
 
   const photoPath = `${employeeId}/${wibDate(now).slice(0, 7)}/${randomUUID()}.jpg`;
   try {
-    await uploadPhoto(photoPath, bytes);
+    await uploadObject(PHOTO_BUCKET, photoPath, bytes, "image/jpeg");
   } catch (e) {
     console.error(JSON.stringify({ msg: "attendance.photo_upload_failed", error: String(e) }));
     return fail(503, "Foto gagal disimpan. Periksa internet lalu coba lagi.");
@@ -165,7 +165,7 @@ export async function POST(req: Request) {
     });
     return Response.json(saved);
   } catch (e) {
-    await removePhoto(photoPath);
+    await removeObject(PHOTO_BUCKET, photoPath);
     if (e instanceof DuplicateError) return fail(409, `Anda sudah clock-in hari ini pukul ${hhmm(e.at)}.`);
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
       // Kiriman pertama dengan kunci yang sama baru saja selesai → kembalikan hasilnya, bukan error.

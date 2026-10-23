@@ -29,7 +29,8 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
-  experimental: { authInterrupts: true },
+  // Lampiran cuti ≤ 2 MB lewat Server Action (default batas 1 MB).
+  experimental: { authInterrupts: true, serverActions: { bodySizeLimit: "3mb" } },
   turbopack: {
     rules: { "*.css": { loaders: ["@tailwindcss/turbopack"], as: "*.css" } },
   },

@@ -11,11 +11,12 @@ import { cn } from "@/lib/utils";
 import { HR_ASSIGNABLE_ROLES } from "@/lib/validators";
 import { db } from "@/server/db";
 import { requirePermission } from "@/server/auth";
-import { AccountForm, DeactivateForm, ReactivateButton } from "./employee-actions";
+import { AccountForm, AdjustLeaveForm, DeactivateForm, ReactivateButton } from "./employee-actions";
+import { leaveSummary } from "@/server/leave";
 
 export const metadata = { title: "Detail Karyawan — HRIS" };
 
-const TABS = { profil: "Profil", pekerjaan: "Pekerjaan", riwayat: "Riwayat Perubahan" } as const;
+const TABS = { profil: "Profil", pekerjaan: "Pekerjaan", cuti: "Cuti", riwayat: "Riwayat Perubahan" } as const;
 type Tab = keyof typeof TABS;
 
 function Info({ items }: { items: [string, React.ReactNode][] }) {
@@ -148,6 +149,8 @@ export default async function EmployeeDetailPage({ params, searchParams }: PageP
         />
       )}
 
+      {tab === "cuti" && <LeaveTab employeeId={e.id} canAdjust={user.permissions.has("leave.balance.adjust")} />}
+
       {tab === "riwayat" && canManage && (
         <ol className="space-y-2">
           {history.length === 0 && <li className="rounded-lg border bg-white p-4 text-sm text-muted-foreground">Belum ada riwayat.</li>}
@@ -237,5 +240,65 @@ function ChangeList({ before, after, names }: { before: unknown; after: unknown;
         </li>
       ))}
     </ul>
+  );
+}
+
+const TX_KIND: Record<string, string> = { GRANT: "Hak tahunan", USE: "Dipakai", REVERSAL: "Dikembalikan (batal)", ADJUSTMENT: "Penyesuaian HR" };
+
+async function LeaveTab({ employeeId, canAdjust }: { employeeId: string; canAdjust: boolean }) {
+  const [summary, txs] = await Promise.all([
+    leaveSummary(employeeId),
+    db.leaveTransaction.findMany({ where: { employeeId }, orderBy: { createdAt: "desc" }, take: 50, include: { leaveType: { select: { name: true } } } }),
+  ]);
+  return (
+    <div className="space-y-4">
+      {summary.map((s) => (
+        <div key={s.type.id} className="rounded-lg border bg-white p-4 text-sm">
+          <b>{s.type.name}</b>
+          {s.period ? (
+            <p>
+              Periode {s.period.start} s/d {s.period.end}: saldo <b>{s.balance} hari</b>, menunggu persetujuan {s.pending} hari, tersedia <b>{s.available} hari</b>
+            </p>
+          ) : (
+            <p className="text-muted-foreground">Belum berhak (belum genap 12 bulan bekerja).</p>
+          )}
+        </div>
+      ))}
+      {canAdjust && summary.length > 0 && <AdjustLeaveForm employeeId={employeeId} types={summary.map((s) => ({ id: s.type.id, name: s.type.name }))} />}
+      <div className="overflow-x-auto rounded-lg border bg-white">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 text-left text-xs text-muted-foreground">
+            <tr>
+              <th className="p-2">Waktu</th>
+              <th className="p-2">Jenis</th>
+              <th className="p-2">Transaksi</th>
+              <th className="p-2 text-right">Hari</th>
+              <th className="p-2">Keterangan</th>
+            </tr>
+          </thead>
+          <tbody>
+            {txs.length === 0 && (
+              <tr>
+                <td colSpan={5} className="p-4 text-center text-muted-foreground">
+                  Belum ada transaksi saldo.
+                </td>
+              </tr>
+            )}
+            {txs.map((t) => (
+              <tr key={t.id} className="border-t">
+                <td className="p-2 whitespace-nowrap">{formatDateTime(t.createdAt)}</td>
+                <td className="p-2">{t.leaveType.name}</td>
+                <td className="p-2">{TX_KIND[t.kind]}</td>
+                <td className={cn("p-2 text-right font-semibold", Number(t.days) < 0 ? "text-red-700" : "text-green-700")}>
+                  {Number(t.days) > 0 ? "+" : ""}
+                  {Number(t.days)}
+                </td>
+                <td className="p-2 text-muted-foreground">{t.note ?? ""}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }

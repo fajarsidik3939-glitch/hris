@@ -3,7 +3,7 @@
 import { useActionState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/form-field";
-import { createEmployeeAccount, deactivateEmployee, reactivateEmployee } from "../actions";
+import { adjustLeaveBalance, createEmployeeAccount, deactivateEmployee, reactivateEmployee } from "../actions";
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -111,6 +111,30 @@ export function ReactivateButton({ employeeId }: { employeeId: string }) {
       >
         Aktifkan kembali
       </Button>
+    </Panel>
+  );
+}
+
+export function AdjustLeaveForm({ employeeId, types }: { employeeId: string; types: { id: string; name: string }[] }) {
+  const [state, action, pending] = useActionState(adjustLeaveBalance, undefined);
+  return (
+    <Panel title="Penyesuaian saldo (HR Manager)">
+      <form action={action} className="grid gap-3 sm:grid-cols-[1fr_8rem]">
+        <input type="hidden" name="employeeId" value={employeeId} />
+        <select name="leaveTypeId" aria-label="Jenis cuti" className="h-11 rounded-md border bg-white px-2 text-sm sm:col-span-2">
+          {types.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name}
+            </option>
+          ))}
+        </select>
+        <FormField name="note" label="Alasan" required errors={state?.errors?.note} />
+        <FormField name="days" label="Hari (+/−)" type="number" step="0.5" required errors={state?.errors?.days} />
+        {state?.message && <p className={state.ok ? "text-sm text-green-700 sm:col-span-2" : "text-sm text-destructive sm:col-span-2"}>{state.message}</p>}
+        <Button type="submit" disabled={pending} className="sm:col-span-2" onClick={(e) => !window.confirm("Simpan penyesuaian saldo?") && e.preventDefault()}>
+          {pending ? "Menyimpan…" : "Simpan penyesuaian"}
+        </Button>
+      </form>
     </Panel>
   );
 }

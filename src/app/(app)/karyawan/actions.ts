@@ -10,6 +10,7 @@ import { deactivateEmployeeSchema, employeeAccountSchema, employeeSchema } from 
 import { db } from "@/server/db";
 import { writeAudit } from "@/server/audit";
 import { requirePermission } from "@/server/auth";
+import { leaveBalance, lockEmployee } from "@/server/leave";
 
 export type EmployeeState =
   | { ok?: boolean; message?: string; tempPassword?: string; errors?: Record<string, string[] | undefined> }
@@ -166,4 +167,33 @@ export async function createEmployeeAccount(_: EmployeeState, formData: FormData
   });
   revalidatePath(`/karyawan/${employeeId}`);
   return { ok: true, message: `Akun dibuat. ID login: ${loginId}. Berikan password sementara ini:`, tempPassword };
+}
+
+const adjustSchema = z.object({
+  employeeId: z.uuid(),
+  leaveTypeId: z.uuid({ error: "Pilih jenis cuti." }),
+  days: z.coerce.number({ error: "Angka tidak valid." }).refine((v) => v !== 0 && Math.abs(v) <= 30 && Number.isInteger(v * 2), { error: "Isi ±0,5 sampai ±30 hari (kelipatan 0,5)." }),
+  note: z.string().trim().min(5, { error: "Alasan minimal 5 karakter." }).max(200),
+});
+
+/** Penyesuaian saldo cuti (HR Manager): transaksi ADJUSTMENT di periode berjalan, alasan wajib. */
+export async function adjustLeaveBalance(_: EmployeeState, formData: FormData): Promise<EmployeeState> {
+  const { user } = await requirePermission("leave.balance.adjust");
+  const parsed = adjustSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { errors: z.flattenError(parsed.error).fieldErrors };
+  const { employeeId, leaveTypeId, days, note } = parsed.data;
+  const emp = await db.employee.findUnique({ where: { id: employeeId }, select: { hireDate: true } });
+  if (!emp) return { message: "Karyawan tidak ditemukan." };
+  const error = await db.$transaction(async (tx) => {
+    await lockEmployee(tx, employeeId);
+    const b = await leaveBalance(employeeId, leaveTypeId, emp.hireDate, tx);
+    if (!b.period) return "Karyawan belum punya periode hak cuti (belum genap 12 bulan).";
+    if (b.balance + days < 0) return `Saldo tidak boleh minus (saldo sekarang ${b.balance} hari).`;
+    await tx.leaveTransaction.create({ data: { employeeId, leaveTypeId, periodYear: b.period.year, days, kind: "ADJUSTMENT", note, createdBy: user.id } });
+    await writeAudit({ actorUserId: user.id, action: "leave.adjust", entityType: "employee", entityId: employeeId, before: { balance: b.balance }, after: { balance: b.balance + days }, reason: note }, tx);
+    return null;
+  });
+  if (error) return { message: error };
+  revalidatePath(`/karyawan/${employeeId}`);
+  return { ok: true, message: "Saldo disesuaikan." };
 }

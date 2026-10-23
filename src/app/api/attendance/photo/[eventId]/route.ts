@@ -1,7 +1,7 @@
 import { employeeScopeWhere } from "@/lib/scope";
 import { db } from "@/server/db";
 import { getCurrentUser } from "@/server/auth";
-import { signedPhotoUrl } from "@/server/storage";
+import { PHOTO_BUCKET, signedUrl } from "@/server/storage";
 
 /** Foto absensi: cek izin + scope, lalu arahkan ke URL sementara 5 menit (bucket privat). */
 export async function GET(_req: Request, ctx: RouteContext<"/api/attendance/photo/[eventId]">) {
@@ -18,6 +18,6 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/attendance/phot
 
   return new Response(null, {
     status: 302,
-    headers: { Location: await signedPhotoUrl(event.photoPath), "Cache-Control": "private, no-store" },
+    headers: { Location: await signedUrl(PHOTO_BUCKET, event.photoPath), "Cache-Control": "private, no-store" },
   });
 }

@@ -258,19 +258,21 @@ model Employee {
   createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz
 
-  user             User?                  @relation(fields: [userId], references: [id], onDelete: Restrict)
-  branch           Branch                 @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  department       Department             @relation(fields: [departmentId], references: [id], onDelete: Restrict)
-  position         Position               @relation(fields: [positionId], references: [id], onDelete: Restrict)
-  manager          Employee?              @relation("Reports", fields: [managerId], references: [id], onDelete: Restrict)
-  subordinates     Employee[]             @relation("Reports")
-  defaultShift     Shift?                 @relation(fields: [defaultShiftId], references: [id], onDelete: Restrict)
-  attendance       AttendanceRecord[]
-  attendanceEvents AttendanceEvent[]
-  schedules        EmployeeSchedule[]
-  corrections      AttendanceCorrection[]
-  requests         ApprovalRequest[]      @relation("Requester")
-  approvalSteps    ApprovalStep[]         @relation("StepApprover")
+  user              User?                  @relation(fields: [userId], references: [id], onDelete: Restrict)
+  branch            Branch                 @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  department        Department             @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  position          Position               @relation(fields: [positionId], references: [id], onDelete: Restrict)
+  manager           Employee?              @relation("Reports", fields: [managerId], references: [id], onDelete: Restrict)
+  subordinates      Employee[]             @relation("Reports")
+  defaultShift      Shift?                 @relation(fields: [defaultShiftId], references: [id], onDelete: Restrict)
+  attendance        AttendanceRecord[]
+  attendanceEvents  AttendanceEvent[]
+  schedules         EmployeeSchedule[]
+  corrections       AttendanceCorrection[]
+  requests          ApprovalRequest[]      @relation("Requester")
+  leaveRequests     LeaveRequest[]
+  leaveTransactions LeaveTransaction[]
+  approvalSteps     ApprovalStep[]         @relation("StepApprover")
 
   @@index([branchId])
   @@index([departmentId])
@@ -434,6 +436,7 @@ model ApprovalRequest {
   requester  Employee              @relation("Requester", fields: [requesterEmployeeId], references: [id], onDelete: Restrict)
   steps      ApprovalStep[]
   correction AttendanceCorrection?
+  leave      LeaveRequest?
 
   @@index([status, currentStep])
   @@map("approval_requests")
@@ -494,6 +497,78 @@ model Notification {
 
   @@index([userId, readAt])
   @@map("notifications")
+}
+
+// ---------- Cuti & izin ----------
+
+model LeaveType {
+  id                 String   @id @default(uuid()) @db.Uuid
+  code               String   @unique
+  name               String
+  deductsBalance     Boolean  @default(false) @map("deducts_balance")
+  requiresAttachment Boolean  @default(false) @map("requires_attachment")
+  allowHalfDay       Boolean  @default(false) @map("allow_half_day")
+  maxDaysPerRequest  Int?     @map("max_days_per_request")
+  isActive           Boolean  @default(true) @map("is_active")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  requests     LeaveRequest[]
+  transactions LeaveTransaction[]
+
+  @@map("leave_types")
+}
+
+model LeaveRequest {
+  id                String        @id @default(uuid()) @db.Uuid
+  employeeId        String        @map("employee_id") @db.Uuid
+  leaveTypeId       String        @map("leave_type_id") @db.Uuid
+  startDate         DateTime      @map("start_date") @db.Date
+  endDate           DateTime      @map("end_date") @db.Date
+  halfDay           Boolean       @default(false) @map("half_day")
+  // Hari kerja dihitung server (bukan input klien).
+  days              Decimal       @db.Decimal(4, 1)
+  reason            String
+  attachmentPath    String?       @map("attachment_path")
+  status            RequestStatus @default(PENDING)
+  approvalRequestId String        @unique @map("approval_request_id") @db.Uuid
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz
+
+  employee     Employee           @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  leaveType    LeaveType          @relation(fields: [leaveTypeId], references: [id], onDelete: Restrict)
+  request      ApprovalRequest    @relation(fields: [approvalRequestId], references: [id], onDelete: Restrict)
+  transactions LeaveTransaction[]
+
+  @@index([employeeId, startDate])
+  @@map("leave_requests")
+}
+
+enum LeaveTxKind {
+  GRANT
+  USE
+  REVERSAL
+  ADJUSTMENT
+}
+
+// Buku besar saldo cuti: hanya INSERT. Saldo = SUM(days) per karyawan × jenis × periode.
+model LeaveTransaction {
+  id             String      @id @default(uuid()) @db.Uuid
+  employeeId     String      @map("employee_id") @db.Uuid
+  leaveTypeId    String      @map("leave_type_id") @db.Uuid
+  periodYear     Int         @map("period_year")
+  days           Decimal     @db.Decimal(4, 1)
+  kind           LeaveTxKind
+  leaveRequestId String?     @map("leave_request_id") @db.Uuid
+  note           String?
+  createdBy      String?     @map("created_by") @db.Uuid
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz
+
+  employee     Employee      @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  leaveType    LeaveType     @relation(fields: [leaveTypeId], references: [id], onDelete: Restrict)
+  leaveRequest LeaveRequest? @relation(fields: [leaveRequestId], references: [id], onDelete: Restrict)
+
+  @@index([employeeId, leaveTypeId, periodYear])
+  @@map("leave_transactions")
 }
 
 // ---------- Audit & pengaturan ----------

@@ -1,7 +1,8 @@
 import "server-only";
 
-// Supabase Storage lewat REST (tanpa SDK). Bucket privat; akses foto hanya via signed URL berumur pendek.
+// Supabase Storage lewat REST (tanpa SDK). Bucket privat; akses berkas hanya via signed URL berumur pendek.
 export const PHOTO_BUCKET = "attendance-photos";
+export const LEAVE_BUCKET = "leave-attachments";
 
 function config() {
   const url = process.env.SUPABASE_URL;
@@ -10,35 +11,35 @@ function config() {
   return { url, headers: { apikey: key, Authorization: `Bearer ${key}` } };
 }
 
-export async function uploadPhoto(path: string, bytes: Uint8Array<ArrayBuffer>) {
+export async function uploadObject(bucket: string, path: string, bytes: Uint8Array<ArrayBuffer>, contentType: string) {
   const { url, headers } = config();
-  const res = await fetch(`${url}/storage/v1/object/${PHOTO_BUCKET}/${path}`, {
+  const res = await fetch(`${url}/storage/v1/object/${bucket}/${path}`, {
     method: "POST",
-    headers: { ...headers, "Content-Type": "image/jpeg", "x-upsert": "false" },
+    headers: { ...headers, "Content-Type": contentType, "x-upsert": "false" },
     body: bytes,
   });
-  if (!res.ok) throw new Error(`Upload foto gagal (${res.status})`);
+  if (!res.ok) throw new Error(`Upload berkas gagal (${res.status})`);
 }
 
-/** Hapus foto (dipakai bila penyimpanan absensi gagal setelah upload). Tidak melempar error. */
-export async function removePhoto(path: string) {
+/** Hapus berkas (dipakai bila penyimpanan data gagal setelah upload). Tidak melempar error. */
+export async function removeObject(bucket: string, path: string) {
   const { url, headers } = config();
-  await fetch(`${url}/storage/v1/object/${PHOTO_BUCKET}`, {
+  await fetch(`${url}/storage/v1/object/${bucket}`, {
     method: "DELETE",
     headers: { ...headers, "Content-Type": "application/json" },
     body: JSON.stringify({ prefixes: [path] }),
   }).catch(() => {});
 }
 
-/** URL sementara untuk melihat foto (default 5 menit). */
-export async function signedPhotoUrl(path: string, expiresInSec = 300): Promise<string> {
+/** URL sementara untuk membuka berkas (default 5 menit). */
+export async function signedUrl(bucket: string, path: string, expiresInSec = 300): Promise<string> {
   const { url, headers } = config();
-  const res = await fetch(`${url}/storage/v1/object/sign/${PHOTO_BUCKET}/${path}`, {
+  const res = await fetch(`${url}/storage/v1/object/sign/${bucket}/${path}`, {
     method: "POST",
     headers: { ...headers, "Content-Type": "application/json" },
     body: JSON.stringify({ expiresIn: expiresInSec }),
   });
-  if (!res.ok) throw new Error(`Gagal membuat URL foto (${res.status})`);
+  if (!res.ok) throw new Error(`Gagal membuat URL berkas (${res.status})`);
   const { signedURL } = (await res.json()) as { signedURL: string };
   return `${url}/storage/v1${signedURL}`;
 }

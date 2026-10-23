@@ -3,10 +3,11 @@
 import { revalidatePath } from "next/cache";
 import * as z from "zod";
 import { Prisma } from "@/generated/prisma/client";
-import { branchSchema, companySchema, holidaySchema, shiftSchema, simpleMasterSchema, workLocationSchema } from "@/lib/validators";
+import { branchSchema, companySchema, holidaySchema, leaveTypeSchema, shiftSchema, simpleMasterSchema, workLocationSchema } from "@/lib/validators";
 import { db } from "@/server/db";
 import { writeAudit } from "@/server/audit";
 import { requirePermission } from "@/server/auth";
+import { grantAnnualLeave } from "@/server/leave";
 
 export type OrgState = { ok?: boolean; message?: string; errors?: Record<string, string[] | undefined> } | undefined;
 
@@ -195,4 +196,30 @@ export async function toggleShift(id: string) {
   await toggle("shift", id, (id, isActive) => db.shift.update({ where: { id }, data: { isActive }, select: { isActive: true } }), () =>
     db.shift.findUnique({ where: { id }, select: { isActive: true } }),
   );
+}
+
+// ---------- Jenis cuti & saldo tahunan ----------
+
+export async function saveLeaveType(_: OrgState, formData: FormData): Promise<OrgState> {
+  return save("leave_type", formData, leaveTypeSchema, {
+    find: (id) =>
+      db.leaveType.findUnique({ where: { id }, select: { code: true, name: true, deductsBalance: true, requiresAttachment: true, allowHalfDay: true, maxDaysPerRequest: true } }),
+    create: (data) => db.leaveType.create({ data }),
+    update: (id, data) => db.leaveType.update({ where: { id }, data }),
+  });
+}
+
+export async function toggleLeaveType(id: string) {
+  await toggle("leave_type", id, (id, isActive) => db.leaveType.update({ where: { id }, data: { isActive }, select: { isActive: true } }), () =>
+    db.leaveType.findUnique({ where: { id }, select: { isActive: true } }),
+  );
+}
+
+/** Berikan hak cuti tahunan periode berjalan (aman diulang; yang sudah dapat dilewati). */
+export async function processAnnualLeave(): Promise<OrgState> {
+  const { user } = await requirePermission("employee.manage");
+  const r = await grantAnnualLeave(user.id);
+  await writeAudit({ actorUserId: user.id, action: "leave.grant_annual", entityType: "leave_transaction", after: r });
+  revalidatePath(PATH);
+  return { ok: true, message: `${r.granted} hak cuti baru diberikan (${r.eligible - r.granted} sudah ada sebelumnya).` };
 }

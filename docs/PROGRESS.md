@@ -12,8 +12,8 @@
 | 7 | Implementation Foundation & Authentication | APPROVED (2026-10-23, login dari HP berhasil) |
 | 8 | Employee Management & Organization | APPROVED (2026-10-23) |
 | 9 | Selfie GPS Attendance | APPROVED (2026-10-23) |
-| 10 | Attendance Management, Shift & Scheduling | READY FOR REVIEW |
-| 11 | Leave, Permission & Approval Workflow | NOT STARTED |
+| 10 | Attendance Management, Shift & Scheduling | APPROVED (2026-10-23) |
+| 11 | Leave, Permission & Approval Workflow | READY FOR REVIEW |
 | 12 | Impor Fingerprint (slot semula Overtime; lembur pindah ke Phase 15) | NOT STARTED |
 | 13 | Dashboard, Reports & Notifications | NOT STARTED |
 | 14 | Payroll & Benefits | SKIPPED (di luar scope) |
@@ -147,5 +147,23 @@ Hasil cek:
 - Diperbaiki saat uji: rekap menghitung hari sebelum tanggal masuk sebagai tidak hadir; koreksi jam masuk saja bisa melewati jam pulang tercatat; pesan masa depan di field yang salah.
 - Belum: uji di HP untuk halaman baru; ekspor Excel (M7); cuti/izin di status harian (M5).
 
+
+## Phase 11 / M5 — cuti & izin (READY FOR REVIEW, 2026-10-23)
+Dibuat:
+- Migrasi `20261023000005_leave`: leave_types, leave_requests, leave_transactions (buku besar; trigger append-only; GRANT unik per karyawan × jenis × periode; CHECK tanggal/½ hari/alasan penyesuaian; RLS). Jenis default via seed: Tahunan, Sakit, Izin Pribadi, Menikah.
+- `src/lib/leave.ts`: hitung hari kerja (dari jadwal; libur/off tidak dihitung; ½ hari = 0,5), periode hak cuti (ulang tahun masa kerja; tanpa carry-over), irisan tanggal.
+- `src/server/leave.ts`: saldo = SUM buku besar periode berjalan; tersedia = saldo − menunggu; proses hak tahunan (aman diulang); kunci baris karyawan (FOR UPDATE).
+- `/pengajuan/cuti`: pilih jenis (aturan tampil), tanggal, ½ hari, alasan, lampiran foto/PDF ≤ 2 MB (jenis dicek dari isi berkas) → bucket privat `leave-attachments`; validasi saldo, maks. hari, tumpuk tanggal, 31 hari kalender, 31 hari ke belakang.
+- Approval memakai engine M4: kartu cuti dengan saldo sebelum/sesudah, lampiran, rekan tim/departemen yang cuti di tanggal sama; final approve → cek ulang saldo (terkunci) + transaksi USE.
+- Batal: menunggu kapan saja; disetujui hanya sebelum tanggal mulai → REVERSAL (saldo kembali).
+- Organisasi → tab Jenis Cuti (CRUD + tombol Proses saldo tahunan). Karyawan → tab Cuti (saldo, buku besar, penyesuaian HR Manager dengan alasan, tidak boleh minus). Beranda → sisa cuti. Kehadiran → status Cuti/Izin (harian & bulanan).
+- Storage digeneralisasi (`uploadObject/removeObject/signedUrl` per bucket); batas body Server Action 3 MB.
+
+Hasil cek:
+- `npm test` 60/60 (+ hari kerja cuti, periode hak, status Cuti/Izin). typecheck, lint, build lulus.
+- Uji browser (HR → karyawan → supervisor → HR → karyawan): proses saldo 8 karyawan, ulang = 0 baru; melebihi saldo, Sakit tanpa lampiran, ½ hari dua tanggal, tanggal bertumpuk → ditolak; cuti 3 hari & sakit + lampiran terkirim; saldo tersedia 9 (3 menunggu); lampiran tampil (signed URL); atasan & HR setujui → buku besar −3; batal cuti disetujui → +3, Beranda kembali 12.
+- DB: transaksi saldo tidak bisa diubah/dihapus; GRANT dobel ditolak (23505); audit leave.submit/grant_annual/approval.*.
+- Belum: uji di HP; uji konkurensi dua approval sekaligus secara nyata (dijaga kunci baris + cek saldo saat ajukan & saat setujui final).
+
 ## Langkah berikutnya
-Approval Phase 10. Setelah APPROVE: Phase 11 / M5 (cuti & izin + saldo, memakai approval engine yang sama).
+Approval Phase 11. Setelah APPROVE: Phase 12 / M6 (Impor Fingerprint) — butuh contoh file ekspor mesin + merek/tipe (Q9). Bila belum ada, M6 digeser setelah M7 (Dashboard & Ekspor).

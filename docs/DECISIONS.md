@@ -27,6 +27,8 @@ Hanya keputusan yang sudah disetujui user (APPROVE) dicatat di sini.
 | 2026-10-23 | 7 | M1 (fondasi, auth, RBAC, audit, kelola pengguna) diterima; online di https://hris-2ohe.vercel.app. | APPROVED |
 | 2026-10-23 | 8 | M2 (organisasi, lokasi + peta, karyawan, scope data, akun karyawan) diterima. | APPROVED |
 | 2026-10-23 | 9 | M3 (shift, absensi selfie GPS, foto privat, Beranda/Absen/Riwayat) diterima; diuji di Android. | APPROVED |
+| 2026-10-23 | 10 | M4 (jadwal rotasi, kehadiran harian/bulanan, koreksi + approval 2 tingkat, notifikasi) diterima. | APPROVED |
+| 2026-10-23 | 11 | Jenis cuti default (tanpa aturan khusus dari user): Tahunan 12 hari/12 bulan kerja (potong saldo, ½ hari), Sakit (wajib lampiran), Izin Pribadi (½ hari), Menikah (maks. 3 hari); sisa cuti tidak terbawa. | APPROVED (default) |
 
 ## Keputusan teknis kecil saat implementasi (default wajar, dicatat)
 | Tanggal | Milestone | Keputusan | Alasan |
@@ -50,3 +52,7 @@ Hanya keputusan yang sudah disetujui user (APPROVE) dicatat di sini.
 | 2026-10-23 | M4 | Foto di Kehadiran tampil dalam dialog; peta lewat link OpenStreetMap (bukan peta di dalam dialog). | Lebih sederhana; informasi jarak & akurasi tetap tampil. |
 | 2026-10-23 | M4 | Notifikasi ditandai dibaca lewat tombol "Tandai semua dibaca", bukan otomatis saat halaman dibuka. | Prefetch halaman tidak boleh menandai baca tanpa dilihat. |
 | 2026-10-23 | M4 | Jadwal & Kehadiran memuat semua karyawan dalam scope di satu query (±100 orang). | Cukup untuk skala perusahaan; pagination/batching bila > 300 karyawan. |
+| 2026-10-23 | M5 | Kalender cuti tim versi sederhana: kartu approval menampilkan rekan (atasan/departemen sama) yang cuti di tanggal sama. | Cukup untuk keputusan atasan; kalender penuh bila dibutuhkan. |
+| 2026-10-23 | M5 | Proses saldo tahunan dijalankan HR (employee.manage) lewat tombol; tanpa cron. | Sesuai desain §5.7; aman diulang. |
+| 2026-10-23 | M5 | Cuti disetujui yang sudah dimulai tidak bisa dibatalkan karyawan; koreksi lewat HR (penyesuaian saldo). | Mencegah saldo/rekap berubah setelah cuti berjalan. |
+| 2026-10-23 | M5 | Lampiran cuti di bucket privat terpisah (JPEG/PNG/PDF ≤ 2 MB), jenis dicek dari isi berkas. | Foto absensi tetap khusus JPEG. |

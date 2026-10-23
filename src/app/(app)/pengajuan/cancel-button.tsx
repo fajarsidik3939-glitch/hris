@@ -1,14 +1,23 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { cancelRequest } from "./actions";
 
-export function CancelButton({ requestId }: { requestId: string }) {
+export function CancelButton({ requestId, label = "Batalkan" }: { requestId: string; label?: string }) {
   const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
   return (
-    <Button variant="outline" size="sm" disabled={pending} onClick={() => window.confirm("Batalkan pengajuan ini?") && start(() => cancelRequest(requestId))}>
-      {pending ? "Membatalkan…" : "Batalkan"}
-    </Button>
+    <div className="space-y-1">
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={pending}
+        onClick={() => window.confirm("Batalkan pengajuan ini?") && start(async () => setError(await cancelRequest(requestId)))}
+      >
+        {pending ? "Membatalkan…" : label}
+      </Button>
+      {error && <p className="text-xs text-destructive">{error}</p>}
+    </div>
   );
 }

@@ -156,10 +156,11 @@ export function correctionTimes(workDate: string, clockIn: string | null, clockO
   return { inAt, outAt };
 }
 
-export type DayStatus = "LIBUR" | "HADIR" | "TERLAMBAT" | "BELUM_CLOCK_OUT" | "TIDAK_HADIR" | "BELUM_ABSEN";
+export type DayStatus = "LIBUR" | "CUTI" | "HADIR" | "TERLAMBAT" | "BELUM_CLOCK_OUT" | "TIDAK_HADIR" | "BELUM_ABSEN";
 
 export const DAY_STATUS: Record<DayStatus, string> = {
   LIBUR: "Libur",
+  CUTI: "Cuti/Izin",
   HADIR: "Hadir",
   TERLAMBAT: "Terlambat",
   BELUM_CLOCK_OUT: "Belum clock-out",
@@ -170,14 +171,16 @@ export const DAY_STATUS: Record<DayStatus, string> = {
 /**
  * Status satu karyawan pada satu tanggal kerja (§5.6). Dihitung saat dibaca, tidak disimpan.
  * "Tidak hadir" hanya bila terjadwal kerja, jadwalnya sudah selesai, dan tidak ada absen.
- * shortcut: cuti/izin/sakit belum ada (M5); setelah M5 cuti disetujui dicek sebelum "Tidak hadir".
+ * Cuti/izin disetujui (sehari penuh) pada hari kerja → CUTI; setengah hari tetap dinilai dari absensinya.
  */
 export function dayStatus(
   now: Date,
   workDate: string,
   schedule: { start: Date; end: Date } | null,
   record: { clockInAt: Date | null; clockOutAt: Date | null; lateMinutes: number } | null,
+  leave: { halfDay: boolean } | null = null,
 ): DayStatus {
+  if (leave && !leave.halfDay && schedule) return "CUTI";
   if (record?.clockInAt) {
     // Tanpa jadwal: "belum clock-out" baru setelah tanggal kerjanya lewat.
     const end = schedule?.end ?? new Date(`${addDays(workDate, 1)}T00:00:00+07:00`);

@@ -184,3 +184,24 @@ export const scheduleAssignSchema = z.object({
   // "" = kembalikan ke shift default; "OFF" = libur; selain itu id shift
   shiftId: z.union([z.literal(""), z.literal("OFF"), z.uuid()]),
 });
+
+export const leaveSchema = z.object({
+  leaveTypeId: z.uuid({ error: "Pilih jenis cuti/izin." }),
+  startDate: isoDate,
+  endDate: isoDate,
+  halfDay: z.literal("on").optional().transform(Boolean),
+  reason: z.string().trim().min(5, { error: "Alasan minimal 5 karakter." }).max(300),
+});
+
+const yesNo = z.enum(["ya", "tidak"], { error: "Pilih Ya atau Tidak." }).transform((v) => v === "ya");
+
+export const leaveTypeSchema = z.object({
+  code,
+  name: z.string().trim().min(2, { error: "Nama wajib diisi." }).max(50),
+  deductsBalance: yesNo,
+  requiresAttachment: yesNo,
+  allowHalfDay: yesNo,
+  maxDaysPerRequest: z
+    .union([z.literal(""), z.coerce.number().int().min(1, { error: "Minimal 1 hari." }).max(365)])
+    .transform((v) => (v === "" ? null : v)),
+});

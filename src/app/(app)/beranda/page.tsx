@@ -5,6 +5,7 @@ import { minuteToTime } from "@/lib/attendance";
 import { formatDateLong } from "@/lib/format";
 import { requireUser } from "@/server/auth";
 import { attendanceContext } from "@/server/attendance-status";
+import { leaveSummary } from "@/server/leave";
 
 export const metadata = { title: "Beranda — HRIS" };
 
@@ -16,6 +17,7 @@ export default async function BerandaPage() {
   const status = canClock ? await attendanceContext(user.employee!.id) : null;
   const selfie = status && status.employee?.attendanceMethod !== "FINGERPRINT";
   const r = status?.current;
+  const leave = user.employee && user.permissions.has("leave.request") ? await leaveSummary(user.employee.id) : [];
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
@@ -65,6 +67,13 @@ export default async function BerandaPage() {
           </CardContent>
         </Card>
       )}
+
+      {leave.map((l) => (
+        <Link key={l.type.id} href="/pengajuan/cuti" className="flex items-center justify-between rounded-lg border bg-white p-4 text-sm">
+          <span>Sisa {l.type.name.toLowerCase()}</span>
+          <b>{l.period ? `${l.available} hari` : "belum berhak"}</b>
+        </Link>
+      ))}
 
       {!status && (
         <Card>

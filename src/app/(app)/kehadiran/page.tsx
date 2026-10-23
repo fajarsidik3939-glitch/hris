@@ -22,7 +22,19 @@ const STATUS_STYLE: Record<DayStatus, string> = {
   TIDAK_HADIR: "bg-red-100 text-red-800",
   BELUM_ABSEN: "bg-slate-100 text-slate-700",
   LIBUR: "bg-slate-100 text-slate-500",
+  CUTI: "bg-sky-100 text-sky-800",
 };
+
+/** Cuti/izin disetujui per karyawan × tanggal dalam rentang. */
+async function approvedLeaves(employeeIds: string[], from: string, to: string) {
+  const leaves = await db.leaveRequest.findMany({
+    where: { employeeId: { in: employeeIds }, status: "APPROVED", startDate: { lte: new Date(to) }, endDate: { gte: new Date(from) } },
+    select: { employeeId: true, startDate: true, endDate: true, halfDay: true, leaveType: { select: { name: true } } },
+  });
+  const map = new Map<string, { halfDay: boolean; name: string }>();
+  for (const l of leaves) for (let d = iso(l.startDate); d <= iso(l.endDate); d = addDays(d, 1)) map.set(`${l.employeeId}:${d}`, { halfDay: l.halfDay, name: l.leaveType.name });
+  return map;
+}
 
 export default async function KehadiranPage({ searchParams }: PageProps<"/kehadiran">) {
   const { user, scope } = await requirePermission("attendance.read");
@@ -123,7 +135,7 @@ type Emp = Awaited<ReturnType<typeof db.employee.findMany<{ select: { id: true; 
 
 async function Daily({ user, employees, date, statusFilter, labelFilter, page, sp }: { user: { permissions: Map<string, unknown> }; employees: Emp; date: string; statusFilter: string; labelFilter: string; page: number; sp: Record<string, string | string[] | undefined> }) {
   const now = new Date();
-  const [resolvers, records] = await Promise.all([
+  const [resolvers, records, leaves] = await Promise.all([
     loadShiftResolvers(employees, date, date),
     db.attendanceRecord.findMany({
       where: { employeeId: { in: employees.map((e) => e.id) }, workDate: new Date(date) },
@@ -132,6 +144,7 @@ async function Daily({ user, employees, date, statusFilter, labelFilter, page, s
         events: { where: { source: "SELFIE" }, orderBy: { occurredAt: "asc" }, include: { workLocation: { select: { name: true } } } },
       },
     }),
+    approvedLeaves(employees.map((e) => e.id), date, date),
   ]);
   const byEmp = new Map(records.map((r) => [r.employeeId, r]));
   const canPhoto = user.permissions.has("attendance.photo.read");
@@ -142,7 +155,8 @@ async function Daily({ user, employees, date, statusFilter, labelFilter, page, s
       const shift = resolvers.get(e.id)!(date);
       const r = byEmp.get(e.id) ?? null;
       const schedule = r?.scheduledStart && r.scheduledEnd ? { start: r.scheduledStart, end: r.scheduledEnd } : shift ? scheduleFor(date, shift) : null;
-      return { e, r, shiftCode: r?.shift?.code ?? shift?.code ?? null, status: dayStatus(now, date, schedule, r) };
+      const leave = leaves.get(`${e.id}:${date}`) ?? null;
+      return { e, r, leave, shiftCode: r?.shift?.code ?? shift?.code ?? null, status: dayStatus(now, date, schedule, r, leave) };
     })
     .filter((x) => (!statusFilter || x.status === statusFilter) && (!labelFilter || x.r?.clockInLabel === labelFilter || x.r?.clockOutLabel === labelFilter));
 
@@ -196,7 +210,7 @@ async function Daily({ user, employees, date, statusFilter, labelFilter, page, s
               </tr>
             </thead>
             <tbody>
-              {shown.map(({ e, r, shiftCode, status }) => (
+              {shown.map(({ e, r, leave, shiftCode, status }) => (
                 <tr key={e.id} className="border-t align-top">
                   <td className="p-2 whitespace-nowrap">
                     <div className="font-medium">{e.fullName}</div>
@@ -211,6 +225,7 @@ async function Daily({ user, employees, date, statusFilter, labelFilter, page, s
                       {DAY_STATUS[status]}
                       {status === "TERLAMBAT" && ` ${r!.lateMinutes}m`}
                     </span>
+                    {leave && <div className="mt-1 text-xs text-muted-foreground">{leave.name}{leave.halfDay && " (½ hari)"}</div>}
                     {r?.hasCorrection && <div className="mt-1 text-xs text-muted-foreground">Dikoreksi</div>}
                   </td>
                 </tr>
@@ -249,16 +264,17 @@ async function Monthly({ employees, month, today }: { employees: Emp; month: str
   if (first > today) return <p className="rounded-lg border bg-white p-6 text-center text-sm text-muted-foreground">Bulan ini belum dimulai.</p>;
 
   const now = new Date();
-  const [resolvers, records] = await Promise.all([
+  const [resolvers, records, leaves] = await Promise.all([
     loadShiftResolvers(employees, first, last),
     db.attendanceRecord.findMany({ where: { employeeId: { in: employees.map((e) => e.id) }, workDate: { gte: new Date(first), lte: new Date(last) } } }),
+    approvedLeaves(employees.map((e) => e.id), first, last),
   ]);
   const rec = new Map(records.map((r) => [`${r.employeeId}:${iso(r.workDate)}`, r]));
   const dates: string[] = [];
   for (let d = first; d <= last; d = addDays(d, 1)) dates.push(d);
 
   const rows = employees.map((e) => {
-    const c: Record<DayStatus, number> = { HADIR: 0, TERLAMBAT: 0, BELUM_CLOCK_OUT: 0, TIDAK_HADIR: 0, BELUM_ABSEN: 0, LIBUR: 0 };
+    const c: Record<DayStatus, number> = { HADIR: 0, TERLAMBAT: 0, BELUM_CLOCK_OUT: 0, TIDAK_HADIR: 0, BELUM_ABSEN: 0, LIBUR: 0, CUTI: 0 };
     let minutes = 0;
     let late = 0;
     for (const d of dates) {
@@ -266,7 +282,7 @@ async function Monthly({ employees, month, today }: { employees: Emp; month: str
       const r = rec.get(`${e.id}:${d}`) ?? null;
       const shift = resolvers.get(e.id)!(d);
       const schedule = r?.scheduledStart && r.scheduledEnd ? { start: r.scheduledStart, end: r.scheduledEnd } : shift ? scheduleFor(d, shift) : null;
-      c[dayStatus(now, d, schedule, r)]++;
+      c[dayStatus(now, d, schedule, r, leaves.get(`${e.id}:${d}`) ?? null)]++;
       minutes += r?.workMinutes ?? 0;
       late += r?.lateMinutes ?? 0;
     }
@@ -286,6 +302,7 @@ async function Monthly({ employees, month, today }: { employees: Emp; month: str
             <th className="p-2 text-right">Terlambat</th>
             <th className="p-2 text-right">Tidak hadir</th>
             <th className="p-2 text-right">Belum clock-out</th>
+            <th className="p-2 text-right">Cuti/Izin</th>
             <th className="p-2 text-right">Libur</th>
             <th className="p-2 text-right">Total terlambat</th>
             <th className="p-2 text-right">Total jam kerja</th>
@@ -302,6 +319,7 @@ async function Monthly({ employees, month, today }: { employees: Emp; month: str
               <td className="p-2 text-right">{c.TERLAMBAT}</td>
               <td className={cn("p-2 text-right", c.TIDAK_HADIR > 0 && "font-bold text-red-700")}>{c.TIDAK_HADIR}</td>
               <td className="p-2 text-right">{c.BELUM_CLOCK_OUT}</td>
+              <td className="p-2 text-right">{c.CUTI}</td>
               <td className="p-2 text-right">{c.LIBUR}</td>
               <td className="p-2 text-right">{late} m</td>
               <td className="p-2 text-right">

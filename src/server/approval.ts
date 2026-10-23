@@ -5,6 +5,7 @@ import { computeRecord, scheduleFor } from "@/lib/attendance";
 import type { CurrentUser } from "./auth";
 import { writeAudit } from "./audit";
 import { db } from "./db";
+import { leaveBalance, lockEmployee } from "./leave";
 import { loadShiftResolvers } from "./schedule";
 
 type Tx = Prisma.TransactionClient;
@@ -78,7 +79,12 @@ export async function decideRequest(user: CurrentUser, requestId: string, approv
     await tx.$queryRaw`SELECT id FROM approval_requests WHERE id = ${requestId}::uuid FOR UPDATE`;
     const req = await tx.approvalRequest.findUnique({
       where: { id: requestId },
-      include: { steps: true, correction: true, requester: { select: { userId: true, fullName: true } } },
+      include: {
+        steps: true,
+        correction: true,
+        leave: { include: { leaveType: true } },
+        requester: { select: { userId: true, fullName: true, hireDate: true } },
+      },
     });
     if (!req) return "Pengajuan tidak ditemukan.";
     const step = req.steps.find((s) => s.stepNo === req.currentStep);
@@ -88,28 +94,69 @@ export async function decideRequest(user: CurrentUser, requestId: string, approv
     if (!approve && !comment) return "Alasan penolakan wajib diisi.";
 
     const now = new Date();
-    await tx.approvalStep.update({ where: { id: step.id }, data: { decision: approve ? "APPROVED" : "REJECTED", decidedBy: user.id, comment, decidedAt: now } });
     const final = !approve || step.stepNo === 2;
+    const leave = req.leave;
+    // Cuti berpotongan saldo: cek ulang saldo (baris karyawan dikunci) sebelum disetujui final.
+    if (approve && final && leave?.leaveType.deductsBalance) {
+      await lockEmployee(tx, req.requesterEmployeeId);
+      const b = await leaveBalance(req.requesterEmployeeId, leave.leaveTypeId, req.requester.hireDate, tx, leave.id);
+      if (!b.period || b.available < Number(leave.days)) return `Saldo ${leave.leaveType.name} tidak cukup (tersedia ${b.available} hari, diminta ${Number(leave.days)}).`;
+      await tx.leaveTransaction.create({
+        data: { employeeId: req.requesterEmployeeId, leaveTypeId: leave.leaveTypeId, periodYear: b.period.year, days: -Number(leave.days), kind: "USE", leaveRequestId: leave.id, createdBy: user.id },
+      });
+    }
+    await tx.approvalStep.update({ where: { id: step.id }, data: { decision: approve ? "APPROVED" : "REJECTED", decidedBy: user.id, comment, decidedAt: now } });
     const status = !approve ? "REJECTED" : "APPROVED";
     if (final) {
       await tx.approvalRequest.update({ where: { id: req.id }, data: { status, decidedAt: now } });
       if (req.correction) await tx.attendanceCorrection.update({ where: { id: req.correction.id }, data: { status } });
+      if (leave) await tx.leaveRequest.update({ where: { id: leave.id }, data: { status } });
       if (approve && req.correction) await applyCorrection(tx, req.correction.id, user.id);
       await notify(tx, [req.requester.userId], {
         type: `approval.${status.toLowerCase()}`,
         title: approve ? "Pengajuan disetujui" : "Pengajuan ditolak",
-        body: approve ? "Koreksi absensi Anda sudah diterapkan." : `Alasan: ${comment}`,
+        body: approve ? (leave ? `${leave.leaveType.name} ${leave.days} hari disetujui.` : "Koreksi absensi Anda sudah diterapkan.") : `Alasan: ${comment}`,
         link: "/pengajuan",
         key: `approval:${req.id}:final`,
       });
     } else {
       await tx.approvalRequest.update({ where: { id: req.id }, data: { currentStep: 2 } });
-      await notifyApprovers(tx, req.id, "Koreksi absensi menunggu persetujuan HR", `${req.requester.fullName} — disetujui atasan`);
+      await notifyApprovers(tx, req.id, `${leave ? leave.leaveType.name : "Koreksi absensi"} menunggu persetujuan HR`, `${req.requester.fullName} — disetujui atasan`);
     }
     await writeAudit(
       { actorUserId: user.id, action: `approval.${approve ? "approve" : "reject"}`, entityType: "approval_request", entityId: req.id, after: { step: step.stepNo, final, status: final ? status : "PENDING" }, reason: comment },
       tx,
     );
+    return null;
+  });
+}
+
+/**
+ * Pemohon membatalkan pengajuan: yang menunggu kapan saja; cuti yang sudah disetujui hanya sebelum tanggal mulai
+ * (saldo dikembalikan lewat transaksi REVERSAL).
+ */
+export async function cancelApprovalRequest(user: CurrentUser, requestId: string, today: string): Promise<string | null> {
+  if (!user.employee) return "Akun tidak terhubung ke data karyawan.";
+  return db.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM approval_requests WHERE id = ${requestId}::uuid FOR UPDATE`;
+    const req = await tx.approvalRequest.findUnique({ where: { id: requestId }, include: { correction: true, leave: { include: { transactions: true } } } });
+    if (!req || req.requesterEmployeeId !== user.employee!.id) return "Pengajuan tidak ditemukan.";
+    const approvedLeave = req.status === "APPROVED" && req.leave;
+    if (req.status !== "PENDING" && !approvedLeave) return "Pengajuan ini tidak bisa dibatalkan.";
+    if (approvedLeave && iso(req.leave!.startDate) <= today) return "Cuti yang sudah dimulai tidak bisa dibatalkan. Hubungi HR.";
+
+    await tx.approvalRequest.update({ where: { id: req.id }, data: { status: "CANCELLED", decidedAt: new Date() } });
+    if (req.correction) await tx.attendanceCorrection.update({ where: { id: req.correction.id }, data: { status: "CANCELLED" } });
+    if (req.leave) {
+      await tx.leaveRequest.update({ where: { id: req.leave.id }, data: { status: "CANCELLED" } });
+      const use = req.leave.transactions.find((t) => t.kind === "USE");
+      if (use) {
+        await tx.leaveTransaction.create({
+          data: { employeeId: use.employeeId, leaveTypeId: use.leaveTypeId, periodYear: use.periodYear, days: -Number(use.days), kind: "REVERSAL", leaveRequestId: req.leave.id, createdBy: user.id, note: "Dibatalkan pemohon" },
+        });
+      }
+    }
+    await writeAudit({ actorUserId: user.id, action: "approval.cancel", entityType: "approval_request", entityId: req.id, after: { wasApproved: Boolean(approvedLeave) } }, tx);
     return null;
   });
 }

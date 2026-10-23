@@ -18,6 +18,13 @@ const SETTINGS: Record<string, unknown> = {
   "fingerprint.column_mapping": {},
 };
 
+const LEAVE_TYPES = [
+  { code: "TAHUNAN", name: "Cuti Tahunan", deductsBalance: true, allowHalfDay: true },
+  { code: "SAKIT", name: "Sakit", requiresAttachment: true },
+  { code: "IZIN", name: "Izin Pribadi", allowHalfDay: true },
+  { code: "MENIKAH", name: "Cuti Menikah", maxDaysPerRequest: 3 },
+];
+
 async function main() {
   for (const [code, description] of Object.entries(PERMISSIONS)) {
     await db.permission.upsert({ where: { code }, update: { description }, create: { code, description } });
@@ -46,6 +53,9 @@ async function main() {
   if ((await db.company.count()) === 0) {
     await db.company.create({ data: { name: "Nama Perusahaan" } });
   }
+
+  // Jenis cuti default (docs/DECISIONS.md); hanya dibuat bila belum ada, perubahan HR tidak ditimpa.
+  for (const t of LEAVE_TYPES) await db.leaveType.upsert({ where: { code: t.code }, update: {}, create: t });
 
   for (const [key, value] of Object.entries(SETTINGS)) {
     await db.systemSetting.upsert({ where: { key }, update: {}, create: { key, value: value as never } });

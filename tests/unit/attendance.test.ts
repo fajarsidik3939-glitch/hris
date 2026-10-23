@@ -153,6 +153,11 @@ describe("status harian (rekap)", () => {
     expect(dayStatus(at, "2026-10-22", sched, rec("2026-10-22T07:55:00", null))).toBe("HADIR");
     expect(dayStatus(after, "2026-10-22", sched, rec("2026-10-22T07:55:00", null))).toBe("BELUM_CLOCK_OUT");
   });
+  it("cuti disetujui di hari kerja → Cuti/Izin (bukan tidak hadir); setengah hari dinilai dari absen", () => {
+    expect(dayStatus(after, "2026-10-22", sched, null, { halfDay: false })).toBe("CUTI");
+    expect(dayStatus(after, "2026-10-22", sched, null, { halfDay: true })).toBe("TIDAK_HADIR");
+    expect(dayStatus(after, "2026-10-25", null, null, { halfDay: false })).toBe("LIBUR");
+  });
   it("absen tanpa jadwal: belum clock-out baru setelah tanggalnya lewat", () => {
     expect(dayStatus(wib("2026-10-25T20:00:00"), "2026-10-25", null, rec("2026-10-25T09:00:00", null))).toBe("HADIR");
     expect(dayStatus(wib("2026-10-26T08:00:00"), "2026-10-25", null, rec("2026-10-25T09:00:00", null))).toBe("BELUM_CLOCK_OUT");

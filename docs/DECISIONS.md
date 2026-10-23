@@ -31,6 +31,7 @@ Hanya keputusan yang sudah disetujui user (APPROVE) dicatat di sini.
 | 2026-10-23 | 11 | Jenis cuti default (tanpa aturan khusus dari user): Tahunan 12 hari/12 bulan kerja (potong saldo, ½ hari), Sakit (wajib lampiran), Izin Pribadi (½ hari), Menikah (maks. 3 hari); sisa cuti tidak terbawa. | APPROVED (default) |
 | 2026-10-23 | 11 | M5 (cuti & izin, saldo buku besar, lampiran, approval, pembatalan) diterima ("lanjut fase selanjutnya"). | APPROVED |
 | 2026-10-23 | 12/13 | Phase 13 (Dashboard & Ekspor) dikerjakan sebelum Phase 12 karena contoh file fingerprint belum ada (sesuai risiko roadmap). | APPROVED |
+| 2026-10-23 | 13 | M7 (dashboard, laporan & ekspor Excel/CSV, retensi foto) diterima; lanjut Phase 16 (fingerprint masih menunggu contoh file). | APPROVED |
 
 ## Keputusan teknis kecil saat implementasi (default wajar, dicatat)
 | Tanggal | Milestone | Keputusan | Alasan |
@@ -62,3 +63,6 @@ Hanya keputusan yang sudah disetujui user (APPROVE) dicatat di sini.
 | 2026-10-23 | M7 | Rekap ekspor bersifat umum (kolom payroll lazim) sampai format sistem payroll diketahui (Q11). | Belum ada spesifikasi kolom dari user. |
 | 2026-10-23 | M7 | Retensi foto dijalankan manual lewat tombol (settings.manage), bukan cron. | Free tier tanpa scheduler; tombol aman diulang. |
 | 2026-10-23 | M7 | Widget "kontrak mendekati berakhir" tidak dibuat: belum ada data kontrak (future scope Dokumen & Kontrak). | Tidak ada sumber data. |
+| 2026-10-23 | M8 | Aplikasi tidak memakai REST API Supabase: semua hak role anon/authenticated di skema public dicabut (migrasi 006). | Defense in depth setelah temuan _prisma_migrations. |
+| 2026-10-23 | M8 | Uji E2E otomatis (Playwright) belum dibuat; diganti uji browser terskrip per fase + matriks hak akses. | Playwright perlu database uji terpisah; dipertimbangkan sebelum production. |
+| 2026-10-23 | M8 | Kerentanan di alat development (shadcn CLI, eslint-config-next) diterima. | Tidak ikut runtime; perbaikan npm = downgrade major. |

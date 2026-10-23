@@ -15,10 +15,10 @@
 | 10 | Attendance Management, Shift & Scheduling | APPROVED (2026-10-23) |
 | 11 | Leave, Permission & Approval Workflow | APPROVED (2026-10-23) |
 | 12 | Impor Fingerprint (slot semula Overtime; lembur pindah ke Phase 15) | BLOCKED (menunggu contoh file mesin, Q9) |
-| 13 | Dashboard, Reports & Notifications | READY FOR REVIEW |
+| 13 | Dashboard, Reports & Notifications | APPROVED (2026-10-23) |
 | 14 | Payroll & Benefits | SKIPPED (di luar scope) |
 | 15 | Additional HR Modules | NOT STARTED |
-| 16 | Integration Testing, Security Review & UAT | NOT STARTED |
+| 16 | Integration Testing, Security Review & UAT | READY FOR REVIEW (UAT pengguna menunggu) |
 | 17 | Deployment Planning & Go-Live Approval | NOT STARTED |
 | 18 | Post-Launch Evaluation & Improvement | NOT STARTED |
 
@@ -186,5 +186,13 @@ Hasil cek:
 - Data uji tambahan: absensi uji EMP-0003 tanggal 15 Jan 2025 (tanpa foto). Password uji-admin diganti (lihat .env.test-accounts).
 - Belum: kontrak mendekati berakhir (belum ada data kontrak), laporan PDF (future scope), format kolom payroll khusus (Q11), uji 100 karyawan nyata.
 
+
+## Phase 16 / M8 — integration testing, security review & UAT (READY FOR REVIEW, 2026-10-23)
+- Hasil lengkap: `docs/TESTING.md`; naskah UAT: `docs/UAT.md`.
+- Matriks hak akses otomatis 72/72 + 3 uji tanpa login sesuai permission matrix.
+- Temuan keamanan diperbaiki: `_prisma_migrations` bisa dibaca/dihapus role anon Supabase → migrasi `20261023000006_lock_public_api` (RLS + cabut semua hak anon/authenticated + default privileges), diuji ulang (anon ditolak). `uuid` di-override ke ^11.1.1 (npm audit produksi 0).
+- Diaudit aman: 35 server action & 4 route API cek izin di server; CSRF; SQL injection; XSS; upload; rahasia di repo/riwayat git; data immutable; header.
+- Risiko sisa: CSP 'unsafe-inline', alat dev (shadcn/eslint-config-next) high, scope aksi manage, login_attempts tumbuh, free tier, belum ada Playwright, belum diuji iPhone/izin lokasi di HP/shift malam nyata/100 karyawan.
+
 ## Langkah berikutnya
-Approval Phase 13. Setelah APPROVE: Phase 12 (Impor Fingerprint) bila contoh file mesin sudah ada; bila belum, Phase 16 (Integration Testing, Security Review & UAT) untuk MVP tanpa fingerprint.
+User menjalankan UAT (`docs/UAT.md`) dengan 3–5 orang (min. 1 Android + 1 iPhone) → perbaikan temuan → approval Phase 16 → Phase 17 (Deployment Planning & Go-Live). Phase 12 (fingerprint) tetap menunggu contoh file mesin.

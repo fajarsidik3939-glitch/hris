@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, CalendarDays, Camera, CheckSquare, ClipboardList, FileText, History, Home, IdCard, Users, type LucideIcon } from "lucide-react";
+import { BarChart3, Building2, CalendarDays, Camera, CheckSquare, ClipboardList, FileText, History, Home, IdCard, Users, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Item = { href: string; label: string; icon: string };
 
-const ICONS: Record<string, LucideIcon> = { home: Home, users: Users, "id-card": IdCard, building: Building2, camera: Camera, history: History, file: FileText, check: CheckSquare, clipboard: ClipboardList, calendar: CalendarDays };
+const ICONS: Record<string, LucideIcon> = { home: Home, users: Users, "id-card": IdCard, building: Building2, camera: Camera, history: History, file: FileText, check: CheckSquare, clipboard: ClipboardList, calendar: CalendarDays, chart: BarChart3 };
 
 function useActive() {
   const pathname = usePathname();

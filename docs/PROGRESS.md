@@ -13,9 +13,9 @@
 | 8 | Employee Management & Organization | APPROVED (2026-10-23) |
 | 9 | Selfie GPS Attendance | APPROVED (2026-10-23) |
 | 10 | Attendance Management, Shift & Scheduling | APPROVED (2026-10-23) |
-| 11 | Leave, Permission & Approval Workflow | READY FOR REVIEW |
-| 12 | Impor Fingerprint (slot semula Overtime; lembur pindah ke Phase 15) | NOT STARTED |
-| 13 | Dashboard, Reports & Notifications | NOT STARTED |
+| 11 | Leave, Permission & Approval Workflow | APPROVED (2026-10-23) |
+| 12 | Impor Fingerprint (slot semula Overtime; lembur pindah ke Phase 15) | BLOCKED (menunggu contoh file mesin, Q9) |
+| 13 | Dashboard, Reports & Notifications | READY FOR REVIEW |
 | 14 | Payroll & Benefits | SKIPPED (di luar scope) |
 | 15 | Additional HR Modules | NOT STARTED |
 | 16 | Integration Testing, Security Review & UAT | NOT STARTED |
@@ -165,5 +165,26 @@ Hasil cek:
 - DB: transaksi saldo tidak bisa diubah/dihapus; GRANT dobel ditolak (23505); audit leave.submit/grant_annual/approval.*.
 - Belum: uji di HP; uji konkurensi dua approval sekaligus secara nyata (dijaga kunci baris + cek saldo saat ajukan & saat setujui final).
 
+
+## Phase 13 / M7 — dashboard, laporan & ekspor (READY FOR REVIEW, 2026-10-23)
+Phase 12 (Impor Fingerprint) BLOCKED: menunggu contoh file ekspor mesin + merek/tipe (Q9). Phase 13 dikerjakan lebih dulu (sesuai risiko roadmap).
+
+Dibuat:
+- `src/server/recap.ts`: `attendanceDays` (status per karyawan × tanggal, 4 query untuk seluruh rentang) + `summarize` + `monthRange` — satu sumber angka untuk Kehadiran, ekspor, dan dashboard (Kehadiran direfaktor memakainya).
+- Dashboard di Beranda untuk HR (semua) / atasan (tim/departemen): aktif, hadir, terlambat, belum absen, tidak hadir, cuti; kehadiran per cabang; approval menunggu; absen luar radius hari ini; karyawan masuk/keluar bulan ini (HR).
+- `/laporan` + `GET /api/laporan` (attendance.export + scope; cuti juga perlu leave.read): Rekap bulanan (kolom payroll umum), Detail harian (≤ 31 hari), Daftar cuti (≤ 31 hari); format Excel (exceljs; tanggal dd/mm/yyyy, header beku + filter) atau CSV (Excel Indonesia: ";" + desimal koma + BOM); setiap unduhan diaudit (report.export).
+- Retensi foto: Organisasi → Perusahaan (settings.manage): hapus berkas storage foto > photo.retention_months lalu kosongkan photo_path (dibolehkan trigger); data absensi tetap.
+- `removeObject` menerima banyak path (hapus massal).
+
+Hasil cek:
+- `npm test` 61/61 (+ format CSV). typecheck, lint, build lulus.
+- Angka dashboard = halaman Kehadiran (Hadir 2, Belum absen 6, luar radius 1, masuk/keluar 1/1).
+- Ekspor: Excel valid (ZIP/xlsx), CSV rekap/harian/cuti berisi data benar (mis. koreksi 22 Okt: Terlambat 60m, Dikoreksi Ya); rentang > 31 hari → 400; atasan hanya mendapat 3 orang timnya.
+- Retensi: event uji Jan 2025 → berkas terhapus dari storage, photo_path null, label & tanggal tetap; 6 foto baru tidak tersentuh; audit tercatat.
+- Kinerja production (8 karyawan dev): rekap Excel 0,7–1,5 dtk, harian 31 hari CSV 0,6 dtk, Kehadiran bulanan 0,4 dtk, Beranda 0,9 dtk.
+- Diperbaiki saat uji: angka "luar radius" dashboard disamakan dengan filter Kehadiran; kartu "belum terhubung" disembunyikan untuk pengguna dashboard; helper retensi dipindah dari file server action (agar tidak jadi endpoint publik).
+- Data uji tambahan: absensi uji EMP-0003 tanggal 15 Jan 2025 (tanpa foto). Password uji-admin diganti (lihat .env.test-accounts).
+- Belum: kontrak mendekati berakhir (belum ada data kontrak), laporan PDF (future scope), format kolom payroll khusus (Q11), uji 100 karyawan nyata.
+
 ## Langkah berikutnya
-Approval Phase 11. Setelah APPROVE: Phase 12 / M6 (Impor Fingerprint) — butuh contoh file ekspor mesin + merek/tipe (Q9). Bila belum ada, M6 digeser setelah M7 (Dashboard & Ekspor).
+Approval Phase 13. Setelah APPROVE: Phase 12 (Impor Fingerprint) bila contoh file mesin sudah ada; bila belum, Phase 16 (Integration Testing, Security Review & UAT) untuk MVP tanpa fingerprint.

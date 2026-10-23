@@ -5,9 +5,11 @@ import { formatDateOnly, toIsoDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { db } from "@/server/db";
 import { requirePermission } from "@/server/auth";
+import { photoRetentionCutoff } from "@/server/settings";
 import * as actions from "./actions";
 import { AnnualLeaveButton } from "./annual-leave-button";
 import { CompanyForm } from "./company-form";
+import { PhotoRetention } from "./photo-retention";
 
 export const metadata = { title: "Organisasi — HRIS" };
 
@@ -62,8 +64,18 @@ async function branchOptions() {
 async function TabContent({ tab }: { tab: Tab }) {
   switch (tab) {
     case "perusahaan": {
-      const c = await db.company.findFirstOrThrow({ select: { name: true, legalName: true, address: true } });
-      return <CompanyForm initial={{ name: c.name, legalName: c.legalName ?? "", address: c.address ?? "" }} />;
+      const [c, retention, canSettings] = await Promise.all([
+        db.company.findFirstOrThrow({ select: { name: true, legalName: true, address: true } }),
+        photoRetentionCutoff(),
+        requirePermission("org.manage").then(({ user }) => user.permissions.has("settings.manage")),
+      ]);
+      const eligible = canSettings ? await db.attendanceEvent.count({ where: { photoPath: { not: null }, occurredAt: { lt: retention.cutoff } } }) : 0;
+      return (
+        <div className="space-y-6">
+          <CompanyForm initial={{ name: c.name, legalName: c.legalName ?? "", address: c.address ?? "" }} />
+          {canSettings && <PhotoRetention months={retention.months} eligible={eligible} />}
+        </div>
+      );
     }
     case "cabang": {
       const rows = await db.branch.findMany({ orderBy: { code: "asc" } });

@@ -21,14 +21,15 @@ export async function uploadObject(bucket: string, path: string, bytes: Uint8Arr
   if (!res.ok) throw new Error(`Upload berkas gagal (${res.status})`);
 }
 
-/** Hapus berkas (dipakai bila penyimpanan data gagal setelah upload). Tidak melempar error. */
-export async function removeObject(bucket: string, path: string) {
+/** Hapus berkas (rollback upload gagal / retensi). Tidak melempar error; true bila berhasil. */
+export async function removeObject(bucket: string, ...paths: string[]): Promise<boolean> {
   const { url, headers } = config();
-  await fetch(`${url}/storage/v1/object/${bucket}`, {
+  const res = await fetch(`${url}/storage/v1/object/${bucket}`, {
     method: "DELETE",
     headers: { ...headers, "Content-Type": "application/json" },
-    body: JSON.stringify({ prefixes: [path] }),
-  }).catch(() => {});
+    body: JSON.stringify({ prefixes: paths }),
+  }).catch(() => null);
+  return Boolean(res?.ok);
 }
 
 /** URL sementara untuk membuka berkas (default 5 menit). */

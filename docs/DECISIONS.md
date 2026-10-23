@@ -29,6 +29,8 @@ Hanya keputusan yang sudah disetujui user (APPROVE) dicatat di sini.
 | 2026-10-23 | 9 | M3 (shift, absensi selfie GPS, foto privat, Beranda/Absen/Riwayat) diterima; diuji di Android. | APPROVED |
 | 2026-10-23 | 10 | M4 (jadwal rotasi, kehadiran harian/bulanan, koreksi + approval 2 tingkat, notifikasi) diterima. | APPROVED |
 | 2026-10-23 | 11 | Jenis cuti default (tanpa aturan khusus dari user): Tahunan 12 hari/12 bulan kerja (potong saldo, ½ hari), Sakit (wajib lampiran), Izin Pribadi (½ hari), Menikah (maks. 3 hari); sisa cuti tidak terbawa. | APPROVED (default) |
+| 2026-10-23 | 11 | M5 (cuti & izin, saldo buku besar, lampiran, approval, pembatalan) diterima ("lanjut fase selanjutnya"). | APPROVED |
+| 2026-10-23 | 12/13 | Phase 13 (Dashboard & Ekspor) dikerjakan sebelum Phase 12 karena contoh file fingerprint belum ada (sesuai risiko roadmap). | APPROVED |
 
 ## Keputusan teknis kecil saat implementasi (default wajar, dicatat)
 | Tanggal | Milestone | Keputusan | Alasan |
@@ -56,3 +58,7 @@ Hanya keputusan yang sudah disetujui user (APPROVE) dicatat di sini.
 | 2026-10-23 | M5 | Proses saldo tahunan dijalankan HR (employee.manage) lewat tombol; tanpa cron. | Sesuai desain §5.7; aman diulang. |
 | 2026-10-23 | M5 | Cuti disetujui yang sudah dimulai tidak bisa dibatalkan karyawan; koreksi lewat HR (penyesuaian saldo). | Mencegah saldo/rekap berubah setelah cuti berjalan. |
 | 2026-10-23 | M5 | Lampiran cuti di bucket privat terpisah (JPEG/PNG/PDF ≤ 2 MB), jenis dicek dari isi berkas. | Foto absensi tetap khusus JPEG. |
+| 2026-10-23 | M7 | CSV memakai ";" + desimal koma + BOM (Excel berlokal Indonesia); Excel (.xlsx) direkomendasikan untuk payroll. | Mencegah CSV terbuka satu kolom di Excel Indonesia. |
+| 2026-10-23 | M7 | Rekap ekspor bersifat umum (kolom payroll lazim) sampai format sistem payroll diketahui (Q11). | Belum ada spesifikasi kolom dari user. |
+| 2026-10-23 | M7 | Retensi foto dijalankan manual lewat tombol (settings.manage), bukan cron. | Free tier tanpa scheduler; tombol aman diulang. |
+| 2026-10-23 | M7 | Widget "kontrak mendekati berakhir" tidak dibuat: belum ada data kontrak (future scope Dokumen & Kontrak). | Tidak ada sumber data. |

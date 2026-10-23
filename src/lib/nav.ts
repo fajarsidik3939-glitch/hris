@@ -12,6 +12,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/approval", label: "Approval", icon: "check", permission: ["approval.manager", "approval.hr"] },
   { href: "/kehadiran", label: "Kehadiran", icon: "clipboard", permission: "attendance.read", teamOnly: true },
   { href: "/jadwal", label: "Jadwal", icon: "calendar", permission: "schedule.read" },
+  { href: "/laporan", label: "Laporan", icon: "chart", permission: "attendance.export" },
   { href: "/karyawan", label: "Karyawan", icon: "id-card", permission: "employee.read" },
   { href: "/organisasi", label: "Organisasi", icon: "building", permission: "org.manage" },
   { href: "/admin/pengguna", label: "Pengguna", icon: "users", permission: "user.manage" },

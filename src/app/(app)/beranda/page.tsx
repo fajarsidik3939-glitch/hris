@@ -6,6 +6,7 @@ import { formatDateLong } from "@/lib/format";
 import { requireUser } from "@/server/auth";
 import { attendanceContext } from "@/server/attendance-status";
 import { leaveSummary } from "@/server/leave";
+import { TeamDashboard } from "./team-dashboard";
 
 export const metadata = { title: "Beranda — HRIS" };
 
@@ -18,6 +19,7 @@ export default async function BerandaPage() {
   const selfie = status && status.employee?.attendanceMethod !== "FINGERPRINT";
   const r = status?.current;
   const leave = user.employee && user.permissions.has("leave.request") ? await leaveSummary(user.employee.id) : [];
+  const teamScope = user.permissions.get("attendance.read");
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
@@ -25,6 +27,8 @@ export default async function BerandaPage() {
         <h1 className="text-xl font-bold">Halo, {user.displayName}</h1>
         <p className="text-sm text-muted-foreground">{formatDateLong(new Date())}</p>
       </div>
+
+      {teamScope && teamScope !== "OWN" && <TeamDashboard user={user} scope={teamScope} />}
 
       {status && (
         <Card>
@@ -75,7 +79,7 @@ export default async function BerandaPage() {
         </Link>
       ))}
 
-      {!status && (
+      {!status && !(teamScope && teamScope !== "OWN") && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Selamat datang di HRIS</CardTitle>

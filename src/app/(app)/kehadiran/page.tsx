@@ -2,18 +2,17 @@ import Link from "next/link";
 import type { Prisma } from "@/generated/prisma/client";
 import { LocationBadge } from "@/components/location-badge";
 import { Button } from "@/components/ui/button";
-import { addDays, DAY_STATUS, dayStatus, scheduleFor, wibDate, type DayStatus } from "@/lib/attendance";
+import { DAY_STATUS, wibDate, type DayStatus } from "@/lib/attendance";
 import { employeeScopeWhere } from "@/lib/scope";
 import { cn } from "@/lib/utils";
 import { db } from "@/server/db";
 import { requirePermission } from "@/server/auth";
-import { loadShiftResolvers } from "@/server/schedule";
+import { attendanceDays, monthRange, summarize } from "@/server/recap";
 import { PhotoButton } from "./photo-button";
 
 export const metadata = { title: "Kehadiran — HRIS" };
 
 const PAGE_SIZE = 20;
-const iso = (d: Date) => d.toISOString().slice(0, 10);
 const time = (d: Date | null) => (d ? d.toLocaleTimeString("id-ID", { timeZone: "Asia/Jakarta", hour: "2-digit", minute: "2-digit" }) : "--:--");
 const STATUS_STYLE: Record<DayStatus, string> = {
   HADIR: "bg-green-100 text-green-800",
@@ -24,17 +23,6 @@ const STATUS_STYLE: Record<DayStatus, string> = {
   LIBUR: "bg-slate-100 text-slate-500",
   CUTI: "bg-sky-100 text-sky-800",
 };
-
-/** Cuti/izin disetujui per karyawan × tanggal dalam rentang. */
-async function approvedLeaves(employeeIds: string[], from: string, to: string) {
-  const leaves = await db.leaveRequest.findMany({
-    where: { employeeId: { in: employeeIds }, status: "APPROVED", startDate: { lte: new Date(to) }, endDate: { gte: new Date(from) } },
-    select: { employeeId: true, startDate: true, endDate: true, halfDay: true, leaveType: { select: { name: true } } },
-  });
-  const map = new Map<string, { halfDay: boolean; name: string }>();
-  for (const l of leaves) for (let d = iso(l.startDate); d <= iso(l.endDate); d = addDays(d, 1)) map.set(`${l.employeeId}:${d}`, { halfDay: l.halfDay, name: l.leaveType.name });
-  return map;
-}
 
 export default async function KehadiranPage({ searchParams }: PageProps<"/kehadiran">) {
   const { user, scope } = await requirePermission("attendance.read");
@@ -134,30 +122,16 @@ export default async function KehadiranPage({ searchParams }: PageProps<"/kehadi
 type Emp = Awaited<ReturnType<typeof db.employee.findMany<{ select: { id: true; fullName: true; employeeCode: true; branchId: true; workDays: true; defaultShift: true; hireDate: true; branch: { select: { name: true } } } }>>>;
 
 async function Daily({ user, employees, date, statusFilter, labelFilter, page, sp }: { user: { permissions: Map<string, unknown> }; employees: Emp; date: string; statusFilter: string; labelFilter: string; page: number; sp: Record<string, string | string[] | undefined> }) {
-  const now = new Date();
-  const [resolvers, records, leaves] = await Promise.all([
-    loadShiftResolvers(employees, date, date),
-    db.attendanceRecord.findMany({
-      where: { employeeId: { in: employees.map((e) => e.id) }, workDate: new Date(date) },
-      include: {
-        shift: { select: { code: true } },
-        events: { where: { source: "SELFIE" }, orderBy: { occurredAt: "asc" }, include: { workLocation: { select: { name: true } } } },
-      },
-    }),
-    approvedLeaves(employees.map((e) => e.id), date, date),
-  ]);
-  const byEmp = new Map(records.map((r) => [r.employeeId, r]));
+  const days = await attendanceDays(employees, date, date);
+  const events = await db.attendanceEvent.findMany({
+    where: { attendanceRecordId: { in: days.flatMap((d) => (d.record ? [d.record.id] : [])) }, source: "SELFIE" },
+    orderBy: { occurredAt: "asc" },
+    include: { workLocation: { select: { name: true } } },
+  });
   const canPhoto = user.permissions.has("attendance.photo.read");
 
-  const rows = employees
-    .filter((e) => iso(e.hireDate) <= date)
-    .map((e) => {
-      const shift = resolvers.get(e.id)!(date);
-      const r = byEmp.get(e.id) ?? null;
-      const schedule = r?.scheduledStart && r.scheduledEnd ? { start: r.scheduledStart, end: r.scheduledEnd } : shift ? scheduleFor(date, shift) : null;
-      const leave = leaves.get(`${e.id}:${date}`) ?? null;
-      return { e, r, leave, shiftCode: r?.shift?.code ?? shift?.code ?? null, status: dayStatus(now, date, schedule, r, leave) };
-    })
+  const rows = days
+    .map((d) => ({ e: d.e, r: d.record, leave: d.leave, shiftCode: d.shiftCode, status: d.status }))
     .filter((x) => (!statusFilter || x.status === statusFilter) && (!labelFilter || x.r?.clockInLabel === labelFilter || x.r?.clockOutLabel === labelFilter));
 
   const counts = Object.fromEntries(Object.keys(DAY_STATUS).map((k) => [k, rows.filter((x) => x.status === k).length]));
@@ -165,9 +139,9 @@ async function Daily({ user, employees, date, statusFilter, labelFilter, page, s
   const shown = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const pageHref = (p: number) => `/kehadiran?${new URLSearchParams({ ...(Object.fromEntries(Object.entries(sp).filter(([, v]) => typeof v === "string")) as Record<string, string>), hal: String(p) })}`;
 
-  const eventCell = (r: (typeof records)[number] | null, type: "IN" | "OUT") => {
+  const eventCell = (r: (typeof days)[number]["record"], type: "IN" | "OUT") => {
     if (!r) return <span className="text-muted-foreground">--:--</span>;
-    const ev = [...r.events].reverse().find((x) => x.type === type);
+    const ev = events.findLast((x) => x.attendanceRecordId === r.id && x.type === type);
     const at = type === "IN" ? r.clockInAt : r.clockOutAt;
     return (
       <div className="space-y-0.5">
@@ -258,35 +232,13 @@ async function Daily({ user, employees, date, statusFilter, labelFilter, page, s
 }
 
 async function Monthly({ employees, month, today }: { employees: Emp; month: string; today: string }) {
-  const first = `${month}-01`;
-  const lastOfMonth = addDays(addDays(first, 32).slice(0, 8) + "01", -1);
-  const last = lastOfMonth < today ? lastOfMonth : today;
-  if (first > today) return <p className="rounded-lg border bg-white p-6 text-center text-sm text-muted-foreground">Bulan ini belum dimulai.</p>;
+  const { first, last, started } = monthRange(month, today);
+  if (!started) return <p className="rounded-lg border bg-white p-6 text-center text-sm text-muted-foreground">Bulan ini belum dimulai.</p>;
 
-  const now = new Date();
-  const [resolvers, records, leaves] = await Promise.all([
-    loadShiftResolvers(employees, first, last),
-    db.attendanceRecord.findMany({ where: { employeeId: { in: employees.map((e) => e.id) }, workDate: { gte: new Date(first), lte: new Date(last) } } }),
-    approvedLeaves(employees.map((e) => e.id), first, last),
-  ]);
-  const rec = new Map(records.map((r) => [`${r.employeeId}:${iso(r.workDate)}`, r]));
-  const dates: string[] = [];
-  for (let d = first; d <= last; d = addDays(d, 1)) dates.push(d);
-
+  const days = await attendanceDays(employees, first, last);
   const rows = employees.map((e) => {
-    const c: Record<DayStatus, number> = { HADIR: 0, TERLAMBAT: 0, BELUM_CLOCK_OUT: 0, TIDAK_HADIR: 0, BELUM_ABSEN: 0, LIBUR: 0, CUTI: 0 };
-    let minutes = 0;
-    let late = 0;
-    for (const d of dates) {
-      if (d < iso(e.hireDate)) continue;
-      const r = rec.get(`${e.id}:${d}`) ?? null;
-      const shift = resolvers.get(e.id)!(d);
-      const schedule = r?.scheduledStart && r.scheduledEnd ? { start: r.scheduledStart, end: r.scheduledEnd } : shift ? scheduleFor(d, shift) : null;
-      c[dayStatus(now, d, schedule, r, leaves.get(`${e.id}:${d}`) ?? null)]++;
-      minutes += r?.workMinutes ?? 0;
-      late += r?.lateMinutes ?? 0;
-    }
-    return { e, c, minutes, late };
+    const s = summarize(days.filter((d) => d.e.id === e.id));
+    return { e, c: s.count, minutes: s.workMinutes, late: s.lateMinutes };
   });
 
   return (

@@ -8,6 +8,8 @@ import { db } from "@/server/db";
 import { writeAudit } from "@/server/audit";
 import { requirePermission } from "@/server/auth";
 import { grantAnnualLeave } from "@/server/leave";
+import { photoRetentionCutoff } from "@/server/settings";
+import { PHOTO_BUCKET, removeObject } from "@/server/storage";
 
 export type OrgState = { ok?: boolean; message?: string; errors?: Record<string, string[] | undefined> } | undefined;
 
@@ -222,4 +224,28 @@ export async function processAnnualLeave(): Promise<OrgState> {
   await writeAudit({ actorUserId: user.id, action: "leave.grant_annual", entityType: "leave_transaction", after: r });
   revalidatePath(PATH);
   return { ok: true, message: `${r.granted} hak cuti baru diberikan (${r.eligible - r.granted} sudah ada sebelumnya).` };
+}
+
+// ---------- Retensi foto ----------
+
+const RETENTION_BATCH = 200;
+
+/**
+ * Hapus foto absensi yang lebih tua dari masa retensi: berkas di storage dulu, lalu photo_path dikosongkan
+ * (satu-satunya perubahan event yang diizinkan trigger). Data absensi (jam, lokasi, label) tetap ada.
+ */
+export async function purgeOldPhotos(): Promise<OrgState> {
+  const { user } = await requirePermission("settings.manage");
+  const { months, cutoff } = await photoRetentionCutoff();
+  let total = 0;
+  for (let i = 0; i < 10; i++) {
+    const batch = await db.attendanceEvent.findMany({ where: { photoPath: { not: null }, occurredAt: { lt: cutoff } }, select: { id: true, photoPath: true }, take: RETENTION_BATCH });
+    if (!batch.length) break;
+    if (!(await removeObject(PHOTO_BUCKET, ...batch.map((e) => e.photoPath!)))) return { message: `Gagal menghapus berkas di storage (${total} foto sudah terhapus). Coba lagi.` };
+    await db.attendanceEvent.updateMany({ where: { id: { in: batch.map((e) => e.id) } }, data: { photoPath: null } });
+    total += batch.length;
+  }
+  await writeAudit({ actorUserId: user.id, action: "photo.retention_purge", entityType: "attendance_event", after: { deleted: total, olderThan: cutoff.toISOString(), months } });
+  revalidatePath(PATH);
+  return { ok: true, message: total ? `${total} foto lebih tua dari ${months} bulan dihapus.` : `Tidak ada foto lebih tua dari ${months} bulan.` };
 }
